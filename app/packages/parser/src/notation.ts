@@ -71,12 +71,14 @@ export interface ParsedGauge {
   stitchPattern: string | null;
 }
 
-/** `18 sts & 28 rows = 4" (10 cm) in St st` → normalized gauge block fields. */
+/** `18 sts & 28 rows = 4" (10 cm) in St st` → normalized gauge block fields.
+ * Also accepts in-the-round phrasing (TCK golden: `18 sts & 24 rounds / 4"`). */
 export function parseGaugeStatement(text: string): ParsedGauge | null {
   const sts = text.match(/(\d+(?:\.\d+)?)\s*sts/i);
-  const rows = text.match(/(\d+(?:\.\d+)?)\s*rows/i);
+  const rows = text.match(/(\d+(?:\.\d+)?)\s*(?:rows|rounds)\b/i);
   const over = text.match(/=\s*(\d+(?:\.\d+)?)\s*(?:"|”|in\b|inches)/i)
-    ?? text.match(/over\s+(\d+(?:\.\d+)?)\s*(?:"|”|in\b|inches)/i);
+    ?? text.match(/over\s+(\d+(?:\.\d+)?)\s*(?:"|”|in\b|inches)/i)
+    ?? text.match(/\/\s*(\d+(?:\.\d+)?)\s*(?:"|”|in\b|inches)/i);
   const perIn = text.match(/(\d+(?:\.\d+)?)\s*sts\s*(?:\/|per)\s*in/i);
   if (!sts && !perIn) return null;
   const stitch = text.match(/in\s+([A-Za-z][A-Za-z .]+?)(?:\.|,|$)/);
@@ -106,7 +108,8 @@ export type MeasurementBasis = 'to_fit' | 'finished' | 'unknown';
 export function detectMeasurementBasis(text: string): MeasurementBasis {
   const t = text.toLowerCase();
   if (/\bto fit\b|\bfits (bust|chest|head|hand|foot|waist|hip)/.test(t)) return 'to_fit';
-  if (/\bfinished (bust|chest|circumference|measurement|size|length|back)\b/.test(t)) return 'finished';
+  if (/\bfinished (bust|chest|circumference|measurement|size|length|back)s?\b/.test(t)
+    || /finished garment measurements/.test(t)) return 'finished';
   return 'unknown';
 }
 
@@ -119,7 +122,7 @@ export interface Segment {
 }
 
 const HEADERS: Array<[Segment['kind'], RegExp]> = [
-  ['sizing', /^(sizes|to fit|finished (bust|chest|measurements?))/i],
+  ['sizing', /^(sizes|sizing|to fit|finished (bust|chest|measurements?))/i],
   ['gauge', /^(gauge|tension)\b/i],
   ['materials', /^(yarn|needles|notions|materials)\b/i],
   ['instructions', /^(instructions|directions|notes|body|sleeves|collar|back|front)\b/i],

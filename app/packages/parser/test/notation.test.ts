@@ -104,3 +104,20 @@ describe('segment (KB §12 document blocks)', () => {
     expect(segs.find((s) => s.kind === 'finishing')?.page).toBe(3);
   });
 });
+
+describe('golden regressions — TCK Flax phrasings (tests/golden/flax-worsted)', () => {
+  it('gauge stated in rounds with a slash span: "18 sts & 24 rounds / 4”"', () => {
+    const g = parseGaugeStatement('gauge: 18 sts & 24 rounds / 4” in stockinette on larger needles.');
+    expect(g?.stsPerIn).toBe(4.5);
+    expect(g?.rowsPerIn).toBe(6);
+  });
+
+  it('"sizing notes:" / "sizing table:" headers classify as sizing', () => {
+    expect(segment('sizing notes: Two body length options are given.')[0]?.kind).toBe('sizing');
+    expect(segment('sizing table: The sizing table lists finished garment measurements.')[0]?.kind).toBe('sizing');
+  });
+
+  it('"finished garment measurements" reads as finished basis', () => {
+    expect(detectMeasurementBasis('The sizing table lists finished garment measurements.')).toBe('finished');
+  });
+});

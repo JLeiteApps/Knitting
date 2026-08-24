@@ -36,3 +36,6 @@ scripts/eng.traineddata
 
 # User-supplied pattern PDFs for the golden set (redistribution risk)
 tests/golden/pdfs/
+
+# Full-text extracts of golden PDFs (regenerable via scripts/extract_book.js; copyright)
+tests/golden/*/text.md

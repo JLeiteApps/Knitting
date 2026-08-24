@@ -17,19 +17,15 @@ engine).
 | Case | Pattern | Intent | Status |
 |---|---|---|---|
 | `flax-like/` | engine fixture `flaxLike()` (3-size top-down raglan, Σ-clean) | body length +2" · gauge conversion 4.5→5 sts/in · bust accommodation (vertical darts) | expectations hand-computed, wired to `app/packages/engine/test/golden.acceptance.test.ts` |
+| `flax-worsted/` | **TCK Flax worsted** (real PDF, 19 sizes; IR subset S/M/L/XL hand-derived) | notation-layer F0 · body length +2" (F2) · gauge conversion 4.5→5 expected §6 BLOCK (F3) · bust darts (F4) | hand-derived from PDF text w/ page cites; wired to `app/packages/engine/test/golden.flax.test.ts`; found+fixed 3 parser lexicon gaps (rounds/slash gauge, sizing headers, finished-garment basis) |
 
-## Real-PDF patterns (pending)
-Tin Can Knits Flax/Barley/Antler were the plan's example set, but tincanknits.com
-now gates PDF downloads behind its SPA with signed URLs (verified 2026-08-24:
-no static PDF links; blog funnels to the SPA; GCS bucket holds only images).
-**Action for the user:** download 2–3 free pattern PDFs manually (any free,
-multi-size, top-down raglan/yoke or flat set-in patterns work — e.g. from the
-TCK site in a normal browser, which the button works in) into
-`tests/golden/pdfs/` (gitignored). Then per pattern:
-1. `node scripts/probe_text.js <pdf>` — confirm a text layer exists.
-2. Run the AddPattern parse flow (web app) or parser notation layer directly.
-3. Hand-verify sizes list, gauge line, section order, key counts.
-4. Add an expectations file + extend the acceptance test.
+## Real-PDF patterns
+- [x] **TCK Flax worsted** (user-downloaded 2026-08-24) → `flax-worsted/`.
+- [ ] 1–2 more constructions: a top-down YOKE and a FLAT SET-IN free pattern
+      would cover the remaining MVP families (any free multi-size PDF works;
+      TCK downloads need a normal browser — the SPA gates bots).
+  Then per pattern: probe text layer → parse (web AddPattern or notation
+  layer) → hand-verify → expectations file + acceptance test.
 
 ## Fixture caveat (flax-like)
 The fixture's body `length.rows` (120/122/124) are not gauge-exact against its
