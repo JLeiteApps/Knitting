@@ -3,7 +3,6 @@ import type {
   Pattern,
   Section,
   ShapingEvent,
-  Sizing,
 } from './index.js';
 
 export interface Diagnostic {

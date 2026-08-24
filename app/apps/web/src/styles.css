@@ -1,0 +1,584 @@
+/* Knit Adapt — mobile-first shell.
+   App plan §2 rules: responsive ≥360px, ≥44px touch targets, no hover-only
+   UI, print stylesheet. Feedback uses :active/:focus-visible, never
+   hover-only affordances. */
+
+:root {
+  --paper: #faf7f2;
+  --card: #ffffff;
+  --ink: #2b2620;
+  --muted: #6f675c;
+  --line: #e4dcd0;
+  --accent: #1f6f6b;
+  --accent-ink: #ffffff;
+  --ok: #2e7d43;
+  --ok-bg: #e6f2e8;
+  --warn: #9a6b1f;
+  --warn-bg: #f9efdc;
+  --err: #b3402e;
+  --err-bg: #f9e6e1;
+  --info: #4a6b8a;
+  --info-bg: #e8eff5;
+  --radius: 12px;
+  --tap: 44px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+
+.app {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 12px 12px 40px;
+}
+
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0 12px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 14px;
+}
+
+.brand h1 {
+  font-size: 1.35rem;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.tagline {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.main-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nav-btn {
+  min-height: var(--tap);
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  font-size: 1rem;
+}
+
+.nav-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.app-footer {
+  margin-top: 24px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+/* cards */
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.card h2 {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+}
+
+.card h3 {
+  margin: 18px 0 8px;
+  font-size: 1rem;
+}
+
+.card h4 {
+  margin: 12px 0 4px;
+  font-size: 0.9rem;
+}
+
+/* lists */
+
+.item-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.item:last-child {
+  border-bottom: none;
+}
+
+.item-body {
+  min-width: 200px;
+  flex: 1;
+}
+
+.item-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.field-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.field-list li {
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--line);
+}
+
+.field-list li:last-child {
+  border-bottom: none;
+}
+
+.field-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.evidence {
+  font-style: italic;
+  max-width: 100%;
+}
+
+.segment-list {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+
+.segment-list li {
+  margin: 4px 0;
+}
+
+.sum-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sum-list li {
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--line);
+}
+
+/* forms */
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 14px;
+  margin: 10px 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field > span {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+input,
+select,
+textarea {
+  min-height: var(--tap);
+  font-size: 16px; /* prevents iOS zoom-on-focus */
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font-family: inherit;
+  width: 100%;
+}
+
+textarea {
+  resize: vertical;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 1px;
+}
+
+label.file-drop {
+  display: block;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  padding: 22px 14px;
+  text-align: center;
+  margin: 10px 0;
+}
+
+label.file-drop input {
+  margin-bottom: 8px;
+}
+
+.paste-box summary {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+/* buttons */
+
+button {
+  min-height: var(--tap);
+  min-width: 44px;
+  padding: 8px 16px;
+  font-size: 1rem;
+  font-family: inherit;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+button.danger {
+  color: var(--err);
+  border-color: var(--err);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.chip-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.chip-row.wrap {
+  margin: 10px 0;
+}
+
+.chip-btn {
+  border-radius: 999px;
+  padding: 6px 14px;
+}
+
+.chip-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* chips */
+
+.chip {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chip.ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.chip.warn {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.chip.err {
+  background: var(--err-bg);
+  color: var(--err);
+}
+
+.chip.info {
+  background: var(--info-bg);
+  color: var(--info);
+}
+
+.chip.high {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.chip.medium {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.chip.low {
+  background: var(--info-bg);
+  color: var(--info);
+}
+
+/* panels & notes */
+
+.panel {
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 10px 0;
+}
+
+.panel.ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.panel.warn {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.panel.err {
+  background: var(--err-bg);
+  color: var(--err);
+}
+
+.panel.info {
+  background: var(--info-bg);
+  color: var(--info);
+}
+
+.panel ul {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+
+.note {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 6px 0;
+}
+
+.intent-card {
+  margin-top: 10px;
+}
+
+/* tables */
+
+.table-scroll {
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+th {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+/* sheet */
+
+.step {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  margin: 10px 0;
+  break-inside: avoid;
+}
+
+.step h4 {
+  margin: 0 0 6px;
+}
+
+pre.math,
+.mono,
+code {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 0.85rem;
+}
+
+pre.math {
+  background: #f4efe7;
+  border-radius: 8px;
+  padding: 10px;
+  overflow-x: auto;
+  margin: 8px 0;
+  white-space: pre-wrap;
+}
+
+.refs {
+  margin: 4px 0 0;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 0.82rem;
+}
+
+.llm-block {
+  border-left: 3px solid var(--line);
+  padding-left: 10px;
+  margin: 8px 0;
+}
+
+/* small screens (360px) */
+
+@media (max-width: 420px) {
+  .app {
+    padding: 8px 8px 32px;
+  }
+
+  .item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .item-body {
+    min-width: 0;
+  }
+
+  .item-actions {
+    justify-content: flex-start;
+  }
+
+  .card {
+    padding: 12px;
+  }
+
+  .app-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .main-nav {
+    justify-content: stretch;
+  }
+
+  .main-nav .nav-btn {
+    flex: 1;
+  }
+}
+
+/* print: the modification sheet is a physical-world artifact */
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  .app {
+    max-width: none;
+    padding: 0;
+  }
+
+  .card {
+    border: none;
+    padding: 0 0 12px;
+    margin: 0;
+  }
+
+  .step {
+    border: 1px solid #999;
+  }
+
+  pre.math {
+    background: #f2f2f2;
+  }
+
+  .panel.ok {
+    background: #fff;
+    color: #000;
+    border: 2px solid #000;
+  }
+}

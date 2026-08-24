@@ -11,7 +11,9 @@
   ],
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc -p app/packages/schema/tsconfig.json --noEmit && tsc -p app/packages/shared/tsconfig.json --noEmit && tsc -p app/packages/parser/tsconfig.json --noEmit && tsc -p app/packages/engine/tsconfig.json --noEmit"
+    "typecheck": "tsc -p app/packages/schema/tsconfig.json --noEmit && tsc -p app/packages/shared/tsconfig.json --noEmit && tsc -p app/packages/parser/tsconfig.json --noEmit && tsc -p app/packages/engine/tsconfig.json --noEmit && npm run typecheck --workspace @knitting/web",
+    "dev:web": "npm run dev --workspace @knitting/web",
+    "build:web": "npm run build --workspace @knitting/web"
   },
   "dependencies": {
     "canvas": "^3.2.3",
@@ -24,6 +26,7 @@
   },
   "allowScripts": {
     "canvas@3.2.3": true,
-    "tesseract.js@7.0.0": true
+    "tesseract.js@7.0.0": true,
+    "esbuild@0.21.5": true
   }
 }

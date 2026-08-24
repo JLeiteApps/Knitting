@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyIntent, validateAgainstSchematic } from '../src/apply.js';
 import { validatePattern } from '@knitting/schema';
 import type { FitProfile, ModificationRequest } from '@knitting/shared';
-import { flaxLike } from './fixtures/flaxLike.js';
+import { flaxLike } from '../src/fixtures/flaxLike.js';
 
 const profile = (over: Partial<FitProfile> = {}): FitProfile => ({
   id: 'p1',

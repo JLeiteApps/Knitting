@@ -4,3 +4,4 @@ export * from './darts.js';
 export * from './ease.js';
 export * from './data/cyc.js';
 export * from './apply.js';
+export { flaxLike } from './fixtures/flaxLike.js';

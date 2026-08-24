@@ -7,7 +7,6 @@ import type { Pattern, Section, ShapingEvent } from '@knitting/schema';
 import {
   convertCount,
   convertRows,
-  driftIn,
   rowGaugeDrift,
   ROW_GAUGE_ACTION_THRESHOLD_IN,
 } from './gauge.js';
@@ -334,8 +333,6 @@ function applyBust(
       return { modified, steps, warnings };
     }
     // Σ-preserving insertion: paired bust incs now, matching neck-edge decs later.
-    const i = ctx.sizeIndex;
-    const base = front.startsWith.sts[i] ?? 0;
     const perSide = d.perSideSts;
     front.events.push(
       mkEvent('inc', 'dart:each_front_half', perSide, { cadence: 'every', intervalRows: [4], times: [1] }, 'bust dart incs (Herzog §19.3)'),
