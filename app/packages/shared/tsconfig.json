@@ -1,0 +1,4 @@
+{
+  "extends": "../schema/tsconfig.json",
+  "include": ["src"]
+}
