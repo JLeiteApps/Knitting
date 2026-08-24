@@ -13,7 +13,8 @@
     "test": "vitest run",
     "typecheck": "tsc -p app/packages/schema/tsconfig.json --noEmit && tsc -p app/packages/shared/tsconfig.json --noEmit && tsc -p app/packages/parser/tsconfig.json --noEmit && tsc -p app/packages/engine/tsconfig.json --noEmit && npm run typecheck --workspace @knitting/web",
     "dev:web": "npm run dev --workspace @knitting/web",
-    "build:web": "npm run build --workspace @knitting/web"
+    "build:web": "npm run build --workspace @knitting/web",
+    "dev:api": "npm run dev --workspace @knitting/api"
   },
   "dependencies": {
     "canvas": "^3.2.3",

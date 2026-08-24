@@ -3,5 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "extract.mjs"
+  "main": "extract.mjs",
+  "scripts": {
+    "dev": "node dev-server.mjs",
+    "test": "vitest run"
+  }
 }

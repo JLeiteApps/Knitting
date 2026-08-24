@@ -8,6 +8,8 @@ all parsing contracts in `@knitting/parser`; the LLM proxy is `@knitting/api`
 
 ## Scripts (repo root)
 - `npm run dev:web` — Vite dev server (seeds the engine fixture `flaxLike` on first run)
+- `npm run dev:api` — local extract-API adapter on :8787 (set `LLM_ENDPOINT` /
+  `LLM_API_KEY`; without them /api returns a 502 the UI degrades from gracefully)
 - `npm run build:web` — typecheck + production build
 - `npm run typecheck` — whole monorepo incl. this app
 

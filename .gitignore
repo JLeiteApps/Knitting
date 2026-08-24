@@ -28,6 +28,11 @@ Thumbs.db
 .zcode/
 scripts/eng.traineddata
 
-# Personal knowledge docs — never versioned
+# Personal knowledge docs — never versioned (specs + golden QA contracts ARE versioned)
 *.md
 !README.md
+!specs/**/*.md
+!tests/golden/**/*.md
+
+# User-supplied pattern PDFs for the golden set (redistribution risk)
+tests/golden/pdfs/
