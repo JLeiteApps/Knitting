@@ -1,0 +1,11 @@
+{
+  "name": "@knitting/schema",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/mod.ts",
+  "types": "src/mod.ts",
+  "scripts": {
+    "test": "vitest run"
+  }
+}

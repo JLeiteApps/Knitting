@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Knowledge-pipeline artifacts (regenerable, large, or copyrighted)
+books/
+extracted/
+ocr_output/
+PaddleOCR/
+research/
+
+# Build output
+dist/
+build/
+.vite/
+*.tsbuildinfo
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Logs & OS
+*.log
+.DS_Store
+Thumbs.db
+
+# Tool-internal & downloadable binaries
+.zcode/
+scripts/eng.traineddata
+
+# Personal knowledge docs — never versioned
+*.md
+!README.md

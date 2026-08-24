@@ -1,0 +1,29 @@
+{
+  "name": "knitting",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Knitting pattern adaptation: knowledge base + deterministic modification engine + web/app",
+  "license": "ISC",
+  "type": "commonjs",
+  "workspaces": [
+    "app/packages/*",
+    "app/apps/*"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p app/packages/schema/tsconfig.json --noEmit && tsc -p app/packages/engine/tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "canvas": "^3.2.3",
+    "pdfjs-dist": "^3.11.174",
+    "tesseract.js": "^7.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "allowScripts": {
+    "canvas@3.2.3": true,
+    "tesseract.js@7.0.0": true
+  }
+}
