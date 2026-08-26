@@ -86,4 +86,45 @@ describe('golden: TCK Flax worsted (tests/golden/flax-worsted/expectations.md)',
     expect(body.endsAt.sts?.[1]).toBe(172); // net 0 → unchanged
     expect(validation.pass).toBe(true);
   });
+
+  it('F5 — sleeve length +2" (size M): 120 rows, every 13 ×6 + every 14 ×3, all sizes Σ clean', () => {
+    const { sheet, validation, modified } = applyIntent(
+      flaxGolden(),
+      req('sleeve_length_change', { kind: 'sleeve_length', deltaIn: 2 }),
+      profile(),
+    );
+    // available = round(108 + 2×6) = 120; taper 58→40 = 9 dec rounds over 120:
+    // q=13 r=3 → 13×6 + 14×3 (Σ rows 120, Σ decs 9)
+    expect(sheet.steps[0]?.instruction).toContain('every 13 ×6 + every 14 ×3');
+    const sleeve = modified.sections.find((s) => s.id === 'sleeve')!;
+    const sc = sleeve.events[0]!.schedule!;
+    expect(sc.intervalRows[1]).toBe(13);
+    expect(sc.times[1]).toBe(6);
+    expect(sc.variantRows?.[1]).toBe(14);
+    expect(sc.variantTimes?.[1]).toBe(3);
+    expect(sleeve.length?.rows?.[1]).toBe(120);
+    expect(sleeve.length?.in?.[1]).toBe(20); // 18 + 2
+    // other sizes untouched (regression: the old splitField replicated M's split)
+    expect({ i: sc.intervalRows[0], t: sc.times[0], vr: sc.variantRows?.[0], vt: sc.variantTimes?.[0] })
+      .toEqual({ i: 7, t: 8, vr: 0, vt: 0 });
+    expect(validatePattern(modified)).toEqual([]); // full multi-size Σ + spans clean
+    expect(validation.pass).toBe(true);
+  });
+
+  it('F6 — sleeve shortened 2" (size M): taper COMPRESSES to 96 rows, decs never dropped', () => {
+    const { sheet, modified } = applyIntent(
+      flaxGolden(),
+      req('sleeve_length_change', { kind: 'sleeve_length', deltaIn: -2 }),
+      profile(),
+    );
+    // available = round(108 − 12) = 96; q=10 r=6 → 10×3 + 11×6 (Σ rows 96, Σ decs 9)
+    expect(sheet.steps[0]?.instruction).toContain('every 10 ×3 + every 11 ×6');
+    expect(sheet.steps[0]?.title).toContain('shortened by 2"');
+    const sleeve = modified.sections.find((s) => s.id === 'sleeve')!;
+    const sc = sleeve.events[0]!.schedule!;
+    expect(sc.times[1]! + (sc.variantTimes?.[1] ?? 0)).toBe(9); // all 9 dec rounds kept
+    expect(sleeve.length?.rows?.[1]).toBe(96);
+    expect(sleeve.length?.in?.[1]).toBe(16);
+    expect(validatePattern(modified)).toEqual([]);
+  });
 });

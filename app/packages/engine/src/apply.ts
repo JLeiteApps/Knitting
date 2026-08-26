@@ -266,13 +266,23 @@ function applySleeveLength(
   const cuff = sleeve.endsAt.sts?.[i];
   if (!cuff) throw new Error('sleeve section needs an end checkpoint (cuff sts)');
   const taper = taperSchedule(upper, cuff, available);
-  // Rewrite the dominant dec event's schedule to the re-rated split.
+  // Rewrite the dominant dec event's schedule to the re-rated split — AT THE
+  // MODIFIED SIZE ONLY. Schedules are per-size arrays: replicating one size's
+  // split to the others breaks their Σ (found by the Flax golden case).
   const dec = sleeve.events.find((e) => e.type === 'dec');
   if (dec?.schedule) {
-    dec.schedule.intervalRows = splitField(taper.groups[0]?.interval ?? 1, modified.sizing.sizeCount);
-    dec.schedule.times = splitField(taper.groups[0]?.times ?? 1, modified.sizing.sizeCount);
-    dec.schedule.variantRows = taper.groups[1] ? splitField(taper.groups[1]!.interval, modified.sizing.sizeCount) : undefined;
-    dec.schedule.variantTimes = taper.groups[1] ? splitField(taper.groups[1]!.times, modified.sizing.sizeCount) : undefined;
+    dec.schedule.intervalRows = perSize(dec.schedule.intervalRows, i, modified.sizing.sizeCount, taper.groups[0]?.interval ?? 1);
+    dec.schedule.times = perSize(dec.schedule.times, i, modified.sizing.sizeCount, taper.groups[0]?.times ?? 1);
+    dec.schedule.variantRows = perSize(dec.schedule.variantRows, i, modified.sizing.sizeCount, taper.groups[1]?.interval ?? 0);
+    dec.schedule.variantTimes = perSize(dec.schedule.variantTimes, i, modified.sizing.sizeCount, taper.groups[1]?.times ?? 0);
+  }
+  // Keep the section length consistent with the new span, or the schedule
+  // exceeds it (validatePattern rule 3).
+  if (sleeve.length?.rows) {
+    sleeve.length.rows = sleeve.length.rows.map((v, idx) => (idx === i ? available : v));
+  }
+  if (sleeve.length?.in) {
+    sleeve.length.in = sleeve.length.in.map((v, idx) => (idx === i ? round2(v + p.deltaIn) : v));
   }
   const steps: SheetStep[] = [{
     id: 'sleeve-rerate',
@@ -527,8 +537,17 @@ function mkEvent(
   return { type, location, perSideSts: [perSide], schedule, src: note };
 }
 
-function splitField(value: number, sizeCount: number): number[] {
-  return Array.from({ length: sizeCount }, () => value);
+/** Per-size schedule write: set index `i`, keep every other size's value
+ * (padding missing entries with 0 so arrays stay length sizeCount). */
+function perSize(
+  arr: number[] | undefined,
+  i: number,
+  sizeCount: number,
+  value: number,
+): number[] {
+  const out = Array.from({ length: sizeCount }, (_, k) => arr?.[k] ?? 0);
+  out[i] = value;
+  return out;
 }
 
 function describeSplit(groups: { interval: number; times: number }[]): string {

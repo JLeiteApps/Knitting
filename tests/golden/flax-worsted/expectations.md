@@ -66,8 +66,26 @@ Profile upper torso 34″, full bust 38″, average tightness:
   **172**; finished 38 − full 38 = 0 ease → no §19.5 compensation step.
 - Gate passes (drift 0.11″, all Σ exact).
 
-## Engine gaps surfaced (not fixed here — plan log TODOs)
-- `applySleeveLength` re-rates ONE size but `splitField` replicates the new
-  schedule across ALL sizes → other sizes' Σ break (found hand-computing a
-  sleeve case; case omitted until fixed).
+## Case F5 — sleeve length +2″, size M — KB §16.2 re-rate
+- available = round(108 + 2 × 6) = **120 rows**; length 18″ → **20″**.
+- taper 58 → 40 = 9 dec rounds over 120 rows (§7 split): q = 13, r = 3 →
+  **every 13 rounds ×6 + every 14 ×3** (Σ rows 120, Σ decs 9 — decs never dropped).
+- Schedule written AT SIZE M ONLY; S/L/XL keep 7×8 / 6×13 / 6×13 →
+  `validatePattern(modified)` = [] (full multi-size Σ + spans clean).
+- Σ: 54−16=38 · 58−18=40 · 68−26=42 · 72−26=46. **Gate PASSES.**
+
+## Case F6 — sleeve shortened 2″, size M — taper COMPRESSES (§16.2)
+- available = round(108 − 12) = **96 rows**; length → **16″**.
+- §7 split of 9 decs over 96: q = 10, r = 6 → **every 10 ×3 + every 11 ×6**
+  (Σ rows 96, Σ decs 9 — same dec count, tighter cadence).
+- Multi-size Σ and spans clean (`validatePattern` = []).
+
+## Engine gap found here and FIXED (2026-08-24, queue item 1)
+`applySleeveLength` used to replicate the re-rated split to every size
+(splitField), silently breaking the unmodified sizes' Σ — invisible to the
+validation gate (it checks only the requested size) but caught by
+`validatePattern`. Now writes per-size and updates the modified size's
+rows/in so the schedule fits the span (validatePattern rule 3).
+
+## Remaining engine gap (not fixed here)
 - Dart events carry perSideSts length 1 vs sizeCount (known from flax-like).

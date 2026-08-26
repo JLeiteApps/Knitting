@@ -90,7 +90,31 @@ describe('intent 4: sleeve_length_change', () => {
     expect(sheet.steps[0]!.math.join(' ')).toContain('Σ checks pass');
     const sleeve = modified.sections.find((s) => s.id === 'sleeve')!;
     expect(sleeve.events[0]!.schedule!.intervalRows[0]).toBe(9);
+    expect(sleeve.events[0]!.schedule!.times[0]).toBe(3);
+    expect(sleeve.events[0]!.schedule!.variantRows?.[0]).toBe(10);
+    expect(sleeve.events[0]!.schedule!.variantTimes?.[0]).toBe(5);
+    expect(sleeve.length!.rows![0]).toBe(77); // span tracks the re-rate
     expect(validation.pass).toBe(true);
+  });
+
+  it('re-rate touches ONLY the modified size (other sizes keep Σ intact)', () => {
+    // Regression (Flax golden): the old code replicated one size's split to
+    // every size, silently breaking their Σ — invisible to the gate because it
+    // checks only the requested size, but caught by validatePattern.
+    const { modified } = applyIntent(
+      flaxLike(),
+      req({ kind: 'sleeve_length', deltaIn: 1 }, 'sleeve_length_change'),
+      profile(),
+    );
+    const sleeve = modified.sections.find((s) => s.id === 'sleeve')!;
+    const sc = sleeve.events[0]!.schedule!;
+    // sizes 1 and 2 keep their original 6×9 / 7×10 taper
+    expect({ interval: sc.intervalRows[1], times: sc.times[1], vr: sc.variantRows?.[1], vt: sc.variantTimes?.[1] })
+      .toEqual({ interval: 6, times: 9, vr: 0, vt: 0 });
+    expect({ interval: sc.intervalRows[2], times: sc.times[2], vr: sc.variantRows?.[2], vt: sc.variantTimes?.[2] })
+      .toEqual({ interval: 7, times: 10, vr: 0, vt: 0 });
+    expect(sleeve.length!.rows!.slice(1)).toEqual([72, 74]);
+    expect(validatePattern(modified)).toEqual([]); // full multi-size Σ + spans clean
   });
 });
 
