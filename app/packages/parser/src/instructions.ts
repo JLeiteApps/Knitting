@@ -205,6 +205,8 @@ export interface SectionCandidate {
   /** Classified checkpoints in order (provenance for Σ reconciliation). */
   checkpoints: Array<{ role: CheckpointRole; values: number[]; evidence: string }>;
   events: CandidateEvent[];
+  /** First length statement in the block, raw as printed (builder converts/aligns). */
+  lengthIn?: number[];
   srcIndex: number;
 }
 
@@ -274,9 +276,11 @@ export function extractSectionCandidates(text: string): SectionCandidate[] {
       });
     }
 
+    const lenRaw = parseLengthStatement(block);
     candidates.push({
       id: head.id,
       label: head.label,
+      ...(lenRaw ? { lengthIn: lenRaw.values } : {}),
       ...(start ? { startsWith: start } : {}),
       ...(end ? { endsAt: end } : {}),
       checkpoints: checkpoints.map((c) => ({ role: c.role, values: c.values, evidence: c.evidence })),
@@ -285,4 +289,19 @@ export function extractSectionCandidates(text: string): SectionCandidate[] {
     });
   }
   return candidates;
+}
+
+/** "until body measures 13 (13, 14)”" / "Work 2 (4, 5)” in pattern" /
+ *  "until yoke measures at least 3.25 (…)”" → per-size length list (raw as printed). */
+export function parseLengthStatement(text: string): { values: number[]; evidence: string } | null {
+  const m = text.match(
+    /measures:?(?:\s+at\s+least)?\s+(\d+(?:\.\d+)?(?:\s*\([\d\s.,½¼¾⅜⅝⅞]+\))?)\s*(?:"|”|′′|inch(?:es)?\b|cm\b)/i,
+  ) ?? text.match(
+    /length\s*:\s*(\d+(?:\.\d+)?(?:\s*\([\d\s.,½¼¾⅜⅝⅞]+\))?)\s*(?:"|”|′′|inch(?:es)?\b|cm\b)/i,
+  ) ?? text.match(
+    /work\s+(\d+(?:\.\d+)?(?:\s*\([\d\s.,½¼¾⅜⅝⅞]+\))?)\s*(?:"|”|′′|inch(?:es)?\b|cm\b)\s+in pattern/i,
+  );
+  if (!m) return null;
+  const list = trailingList(deGarble(m[1] ?? ''));
+  return list ? { values: list, evidence: m[0] } : null;
 }

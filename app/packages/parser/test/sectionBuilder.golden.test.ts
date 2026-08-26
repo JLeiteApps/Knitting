@@ -139,3 +139,19 @@ describe('buildSections — real Flax text → IR sections', () => {
     expect(diags.filter((d) => d.level === 'error')).toEqual([])
   })
 })
+
+describe('buildSections — length statements land on sections', () => {
+  it('body carries the regular-length list at all 19 sizes', () => {
+    const cands = extractSectionCandidates(flaxText)
+    const { sections } = buildSections(cands, { sizeCount: N })
+    const body = sections.find((s) => s.id === 'body' && s.startsWith.event === 'separation')!
+    expect(body.length?.in?.length).toBe(N)
+    expect(body.length?.in?.[8]).toBe(13) // Adult S regular length (p.6)
+    expect(body.length?.in?.[13]).toBe(16.5) // XL
+  })
+  it('cm declaration converts length lists /2.54', () => {
+    const cands = extractSectionCandidates('body: Work in stockinette until body measures 30 (40) cm from underarm.')
+    const { sections } = buildSections(cands, { sizeCount: 2, unit: 'cm' })
+    expect(sections[0]!.length?.in).toEqual([Math.round((30 / 2.54) * 100) / 100, Math.round((40 / 2.54) * 100) / 100])
+  })
+})

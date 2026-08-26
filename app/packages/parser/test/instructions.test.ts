@@ -3,6 +3,7 @@ import {
   classifyCheckpointLabel,
   findSectionHeaders,
   findSizeLists,
+  parseLengthStatement,
   parseRepeatStatement,
 } from '../src/instructions.js';
 
@@ -113,5 +114,23 @@ describe('findSectionHeaders', () => {
 
   it('non-section labels are ignored', () => {
     expect(findSectionHeaders('sizing notes: Two body length options are given.')).toEqual([]);
+  });
+});
+
+describe('parseLengthStatement', () => {
+  it('Flax body length (p.6)', () => {
+    const r = parseLengthStatement('Regular length: Work in stockinette until body measures 5 (5.5, 6, 6.5)" from underarm.');
+    expect(r?.values).toEqual([5, 5.5, 6, 6.5]);
+  });
+  it('yoke "at least" form (p.5)', () => {
+    const r = parseLengthStatement('until yoke measures at least 3.25 (3.75, 4.25)” deep');
+    expect(r?.values.slice(0, 3)).toEqual([3.25, 3.75, 4.25]);
+  });
+  it('"Work N” in pattern" sleeve form (p.7)', () => {
+    const r = parseLengthStatement('long sleeves: Work 2 (4, 5, 5.5)" in pattern.');
+    expect(r?.values).toEqual([2, 4, 5, 5.5]);
+  });
+  it('prose without lengths → null', () => {
+    expect(parseLengthStatement('knit until you reach the markers')).toBeNull();
   });
 });

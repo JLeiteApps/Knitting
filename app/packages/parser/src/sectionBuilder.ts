@@ -26,6 +26,8 @@ export interface BuildOptions {
   sizeCount: number;
   /** Garment working method (Flax: in_the_round). Per-section overrides later. */
   method?: 'flat' | 'in_the_round';
+  /** Pattern-declared unit: 'cm' converts length lists /2.54 (dropdown declaration). */
+  unit?: 'in' | 'cm';
 }
 
 export interface BuildResult {
@@ -39,6 +41,7 @@ const SPLIT_POINT_LABEL = 'separate body and sleeves';
 export function buildSections(candidates: SectionCandidate[], opts: BuildOptions): BuildResult {
   const n = opts.sizeCount;
   const method = opts.method ?? 'in_the_round';
+  const toIn = (v: number) => (opts.unit === 'cm' ? Math.round((v / 2.54) * 100) / 100 : v);
   const notes: string[] = [];
   const sections: Section[] = [];
   let sleeveRunStart: Section['startsWith'] | undefined;
@@ -98,6 +101,12 @@ export function buildSections(candidates: SectionCandidate[], opts: BuildOptions
       events,
       src: `header "${cand.label}"`,
     };
+    // First length statement in the block ("until body measures N (…)”"),
+    // aligned to sizeCount via the trailing-sizes convention.
+    if (cand.lengthIn && cand.lengthIn.length > 1) {
+      const vals = cand.lengthIn.map(toIn);
+      section.length = { in: vals.length === n ? vals : padTrailing(vals, n) };
+    }
     sections.push(section);
   }
   return { sections, notes };

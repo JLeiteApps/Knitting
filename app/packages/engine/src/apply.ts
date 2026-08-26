@@ -349,8 +349,8 @@ function applyBust(
     // Σ-preserving insertion: paired bust incs now, matching neck-edge decs later.
     const perSide = d.perSideSts;
     front.events.push(
-      mkEvent('inc', 'dart:each_front_half', perSide, { cadence: 'every', intervalRows: [4], times: [1] }, 'bust dart incs (Herzog §19.3)'),
-      mkEvent('dec', 'neck_edge', perSide, { cadence: 'every', intervalRows: [2], times: [1] }, 'remove dart sts at neck edge (Herzog §19.3)'),
+      mkEvent('inc', 'dart:each_front_half', perSide, { cadence: 'every', intervalRows: [4], times: [1] }, 'bust dart incs (Herzog §19.3)', modified.sizing.sizeCount),
+      mkEvent('dec', 'neck_edge', perSide, { cadence: 'every', intervalRows: [2], times: [1] }, 'remove dart sts at neck edge (Herzog §19.3)', modified.sizing.sizeCount),
     );
     steps.push({
       id: 'bust-vertical',
@@ -537,10 +537,22 @@ function mkEvent(
   type: 'inc' | 'dec',
   location: string,
   perSide: number,
-  schedule: { cadence: 'every'; intervalRows: number[]; times: number[] },
+  schedule: { cadence: 'every'; intervalRows: [number]; times: [number] },
   note: string,
+  sizeCount: number,
 ): ShapingEvent {
-  return { type, location, perSideSts: [perSide], schedule, src: note };
+  const fill = (v: number) => Array.from({ length: sizeCount }, () => v);
+  return {
+    type,
+    location,
+    perSideSts: fill(perSide),
+    schedule: {
+      cadence: 'every',
+      intervalRows: fill(schedule.intervalRows[0] ?? 1),
+      times: fill(schedule.times[0] ?? 1),
+    },
+    src: note,
+  };
 }
 
 /** Per-size schedule write: set index `i`, keep every other size's value

@@ -142,3 +142,17 @@ describe('golden: cm display unit (engine generates cm at the source)', () => {
     expect(sheet.steps[0]?.instruction).not.toContain('"');
   });
 });
+
+describe('golden: dart events carry full per-size arrays', () => {
+  it('F4b — bust darts on Flax leave validatePattern clean at all sizes', () => {
+    const { modified } = applyIntent(
+      flaxGolden(),
+      req('bust_accommodation', { kind: 'bust', method: 'vertical_darts', tightness: 'average' }),
+      profile({ upperTorsoIn: 34, fullBustIn: 38 }),
+    )
+    const body = modified.sections.find((s) => s.id === 'body')!
+    const inc = body.events.find((e) => e.type === 'inc')!
+    expect(inc.perSideSts.length).toBe(4) // sizeCount, not 1
+    expect(validatePattern(modified)).toEqual([]) // no SIZE_ARRAY_LENGTH, Σ exact
+  })
+})
