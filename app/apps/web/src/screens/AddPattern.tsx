@@ -3,10 +3,14 @@ import type { Pattern } from '@knitting/schema'
 import { validatePattern } from '@knitting/schema'
 import type { ExtractedField, LlmFieldSpec } from '@knitting/parser'
 import {
+  classifyCheckpointLabel,
   detectMeasurementBasis,
   enforceEvidence,
+  findSectionHeaders,
+  findSizeLists,
   looksScanned,
   parseGaugeStatement,
+  parseRepeatStatement,
   parseSizeList,
   segment,
   type ParsedGauge,
@@ -109,7 +113,30 @@ export default function AddPattern({ store, go }: ScreenProps) {
     const scannedPages = segments
       .filter((s) => s.page !== undefined && looksScanned(s.text))
       .map((s) => s.page!)
-    return { segments, gaugeSeg, sizingSeg, parsedGauge, basis, bust, scannedPages }
+    // Instruction layer (deterministic, parser grammar §2): section headers,
+    // checkpoint candidates (size lists + their following labels), repeats.
+    const sectionHeaders = text ? findSectionHeaders(text) : []
+    const checkpointCandidates = (text ? findSizeLists(text) : [])
+      .map((l) => ({ ...l, role: classifyCheckpointLabel(l.contextAfter) }))
+      .filter((l) => l.role !== 'unknown' && l.values.length > 1)
+    const repeats = text
+      ? text
+          .split(/(?<=[.!?])\s+/)
+          .map((sentence) => parseRepeatStatement(sentence))
+          .filter((r): r is NonNullable<typeof r> => r !== null)
+      : []
+    return {
+      segments,
+      gaugeSeg,
+      sizingSeg,
+      parsedGauge,
+      basis,
+      bust,
+      scannedPages,
+      sectionHeaders,
+      checkpointCandidates,
+      repeats,
+    }
   }, [text])
 
   // LLM stage: one call per available head segment, gated by enforceEvidence.
@@ -344,6 +371,74 @@ export default function AddPattern({ store, go }: ScreenProps) {
             </div>
           )
         })}
+
+        <h3>Instruction layer (deterministic candidates)</h3>
+        <p className="muted small">
+          Section headers, checkpoint counts and repeats read straight from the instruction text —
+          candidates for the section builder (full instruction assembly is the parser milestone).
+        </p>
+        {analysis.sectionHeaders.length === 0 &&
+        analysis.checkpointCandidates.length === 0 &&
+        analysis.repeats.length === 0 ? (
+          <p className="muted">Nothing recognized — no instruction prose in this text.</p>
+        ) : (
+          <>
+            {analysis.sectionHeaders.length > 0 && (
+              <div className="chip-row wrap">
+                {analysis.sectionHeaders.map((h, i) => (
+                  <span key={i} className="chip info">
+                    {h.label} → {h.id}
+                  </span>
+                ))}
+              </div>
+            )}
+            {analysis.checkpointCandidates.length > 0 && (
+              <div className="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Role</th>
+                      <th>Values (first 3 …)</th>
+                      <th>Sizes</th>
+                      <th>Evidence</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {analysis.checkpointCandidates.slice(0, 12).map((c, i) => (
+                      <tr key={i}>
+                        <td>
+                          <span className="chip info">{c.role}</span>
+                        </td>
+                        <td className="mono small">{c.values.slice(0, 3).join(', ')} …</td>
+                        <td>{c.values.length}</td>
+                        <td>
+                          <small className="muted">“{c.evidence.slice(0, 24)}…”</small>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {analysis.repeats.length > 0 && (
+              <ul className="field-list">
+                {analysis.repeats.slice(0, 8).map((r, i) => (
+                  <li key={i}>
+                    <div className="field-line">
+                      <span className="chip info">repeat</span>
+                      <span className="mono small">
+                        {r.rounds
+                          ? `${r.rounds} ×${r.times.length} sizes`
+                          : `every ${(r.intervalRounds ?? [0])[0]} … ×${r.times.length} sizes`}
+                      </span>
+                      <small className="muted evidence">“{r.evidence.slice(0, 60)}…”</small>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
 
         <h3>Validation &amp; Σ panel</h3>
         <div className="table-scroll">
