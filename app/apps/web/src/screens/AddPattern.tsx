@@ -3,9 +3,11 @@ import type { Pattern } from '@knitting/schema'
 import { validatePattern } from '@knitting/schema'
 import type { ExtractedField, LlmFieldSpec } from '@knitting/parser'
 import {
+  buildSections,
   classifyCheckpointLabel,
   detectMeasurementBasis,
   enforceEvidence,
+  extractSectionCandidates,
   findSectionHeaders,
   findSizeLists,
   looksScanned,
@@ -179,6 +181,23 @@ export default function AddPattern({ store, go }: ScreenProps) {
     const g = llmGaugeFields ?? analysis.parsedGauge
     const high = [...llmSizing.kept, ...llmGauge.kept].filter((f) => f.confidence === 'high').length
     const total = [...llmSizing.kept, ...llmGauge.kept].length
+    // Deterministic section builder over the instruction text (golden-tested
+    // on the real Flax PDF): headers → candidates → sections[] IR. sizeCount
+    // from the bust list when parsed, else from the candidates' own arrays
+    // (Flax's sizing TABLE is prose rows — no multi-size list to read).
+    const cands = extractSectionCandidates(text)
+    const inferred = Math.max(
+      1,
+      ...cands.flatMap((c) =>
+        [c.startsWith?.sts.length ?? 0, ...c.checkpoints.map((cp) => cp.values.length)].filter((n) => n > 1),
+      ),
+    )
+    const sizeCount = bust?.length ?? inferred
+    const built = buildSections(cands, { sizeCount })
+    const realSections = built.sections.filter(
+      (sec) => ['yoke', 'body', 'sleeve'].includes(sec.id) && (sec.startsWith.sts.length === sizeCount),
+    )
+    const topDown = /from the top down|top[- ]down/i.test(text)
     return {
       schemaVersion: '0.1',
       meta: {
@@ -212,12 +231,26 @@ export default function AddPattern({ store, go }: ScreenProps) {
               },
             ]
           : [],
-      construction: { direction: 'bottom_up', working: [], type: 'flat_drop_shoulder', pieces: [] },
-      schematic: [],
+      construction: realSections.length > 0
+        ? {
+            direction: topDown ? 'top_down' : 'bottom_up',
+            working: [{ scope: 'sections:body', method: 'in_the_round' }],
+            type: topDown ? 'top_down_raglan' : 'flat_drop_shoulder',
+            pieces: [...new Set(realSections.map((sec) => sec.id))],
+          }
+        : { direction: 'bottom_up', working: [], type: 'flat_drop_shoulder', pieces: [] },
+      schematic: bust
+        ? [{ piece: 'back', dimension: 'width_at_chest', in: bust.map((b) => Math.round((b / 2) * 100) / 100), src: 'derived: bust/2 (validation gate)' }]
+        : [],
       stitchPatterns: [],
-      sections: [],
+      sections: realSections,
     }
   }, [name, pdfName, analysis, llmSizing, llmGauge, store.patternUnit])
+
+  const builderNotes = useMemo(
+    () => buildSections(extractSectionCandidates(text), { sizeCount: (analysis.bust ?? [0]).length || 1 }).notes,
+    [text, analysis.bust],
+  )
 
   const diagnostics = useMemo(() => validatePattern(draft), [draft])
 
@@ -499,8 +532,8 @@ export default function AddPattern({ store, go }: ScreenProps) {
                   <span className="chip info">{draft.sections.length} parsed</span>
                 </td>
                 <td className="small">
-                  Instruction-section extraction (checkpoints + shaping events) lands with the
-                  parser milestone; the seeded fixture demonstrates the full Σ-verified flow.
+                  Deterministic section builder (headers → checkpoints → events). Builder notes:{' '}
+                  {builderNotes.length > 0 ? builderNotes.slice(0, 3).join(' · ') : 'none'}
                 </td>
               </tr>
             </tbody>
