@@ -185,6 +185,9 @@ export interface CandidateEvent {
   type: 'inc' | 'dec';
   /** Stitch delta of ONE repeat of the round/row pair, as printed ("[8 sts inc]"). */
   deltaPerRound: number;
+  /** Per-size delta when the pattern states one per size ("increasing 12 (14, …) sts").
+   *  Absent → deltaPerRound applies to every size. */
+  deltaPerSize?: number[];
   /** Per-size repeat counts from the associated "… a total of N (…) times". */
   times: number[];
   /** Per-size interval rows when stated ("these 6 (…) rounds"). */
@@ -238,6 +241,22 @@ export function extractSectionCandidates(text: string): SectionCandidate[] {
       : undefined;
 
     const events: CandidateEvent[] = [];
+    // Prose rule: "Knit increasing 12 (14, …) sts evenly spaced" / "…decreasing…"
+    // — a single shaping round with a PER-SIZE total delta (no repeat).
+    for (const m of block.matchAll(
+      /(increasing|decreasing)\s+(\d+(?:\s*\([\d\s.,½¼¾⅜⅝⅞]+\))?)[\s]{0,10}sts?/gi,
+    )) {
+      const deltaList = trailingList(m[2] ?? '');
+      if (!deltaList) continue;
+      const type = /increasing/i.test(m[1] ?? '') ? 'inc' : 'dec';
+      events.push({
+        type,
+        deltaPerRound: deltaList[0] ?? 0,
+        deltaPerSize: deltaList,
+        times: deltaList.map(() => 1),
+        evidence: m[0],
+      });
+    }
     for (const m of block.matchAll(BRACKET_DELTA_RE)) {
       const delta = Number(m[1]);
       const type = (m[2] ?? '').toLowerCase() as 'inc' | 'dec';
