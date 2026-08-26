@@ -18,6 +18,7 @@ import {
 } from '@knitting/parser'
 import { pdfToText } from '../pdf'
 import { callExtractViaApi } from '../api'
+import { cmToIn } from '../units'
 import type { ScreenProps } from '../App'
 
 /**
@@ -169,8 +170,11 @@ export default function AddPattern({ store, go }: ScreenProps) {
   }, [stage, analysis.sizingSeg, analysis.gaugeSeg])
 
   const draft: Pattern = useMemo(() => {
+    const cm = store.patternUnit === 'cm'
+    const conv = (v: number) => (cm ? Math.round(cmToIn(v) * 100) / 100 : v)
     const llmBust = llmSizing.status === 'done' ? bustFromFields(llmSizing.kept) : null
-    const bust = llmBust ?? analysis.bust
+    const bustRaw = llmBust ?? analysis.bust
+    const bust = bustRaw ? bustRaw.map(conv) : null
     const llmGaugeFields = llmGauge.status === 'done' ? gaugeFromFields(llmGauge.kept) : null
     const g = llmGaugeFields ?? analysis.parsedGauge
     const high = [...llmSizing.kept, ...llmGauge.kept].filter((f) => f.confidence === 'high').length
@@ -188,7 +192,9 @@ export default function AddPattern({ store, go }: ScreenProps) {
         sizeCount: bust?.length ?? 1,
         measurementBasis: analysis.basis,
         bustOrChestIn: bust ?? [0],
-        notes: 'Draft parse — construction and sections pending review (instruction extraction is the parser milestone).',
+        notes:
+          (cm ? 'Pattern declared cm — measurements converted ÷2.54 at parse. ' : '') +
+          'Draft parse — construction and sections pending review (instruction extraction is the parser milestone).',
       },
       gauge:
         g !== null
@@ -211,7 +217,7 @@ export default function AddPattern({ store, go }: ScreenProps) {
       stitchPatterns: [],
       sections: [],
     }
-  }, [name, pdfName, analysis, llmSizing, llmGauge])
+  }, [name, pdfName, analysis, llmSizing, llmGauge, store.patternUnit])
 
   const diagnostics = useMemo(() => validatePattern(draft), [draft])
 
@@ -231,6 +237,19 @@ export default function AddPattern({ store, go }: ScreenProps) {
           The PDF never leaves this device — text is extracted in your browser. Scanned PDFs (no
           text layer) are detected and flagged; browser OCR is out of MVP scope.
         </p>
+        <label className="field">
+          <span>Pattern units (how the document states measurements)</span>
+          <select
+            value={store.patternUnit}
+            onChange={(e) => store.actions.setPatternUnit(e.target.value as 'in' | 'cm')}
+          >
+            <option value="in">Inches</option>
+            <option value="cm">Centimeters</option>
+          </select>
+          <small className="muted">
+            Stored canonically in inches either way — this tells the parser how to read the numbers.
+          </small>
+        </label>
         <label className="file-drop">
           <input
             type="file"
@@ -282,7 +301,10 @@ export default function AddPattern({ store, go }: ScreenProps) {
   if (analysis.bust) {
     notationRows.push({
       path: 'sizes.bust_in',
-      value: analysis.bust.join(' / '),
+      value:
+        store.patternUnit === 'cm'
+          ? `${analysis.bust.join(' / ')} cm → ${analysis.bust.map((v) => Math.round(cmToIn(v) * 100) / 100).join(' / ')}"`
+          : analysis.bust.join(' / '),
       source: 'notation',
       note: 'first size list in the sizing block, values within bust range',
     })

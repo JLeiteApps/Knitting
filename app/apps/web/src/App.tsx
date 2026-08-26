@@ -30,26 +30,45 @@ export default function App() {
           <h1>Knit Adapt</h1>
           <p className="tagline">Verified pattern modifications — the math is done by code, not guesswork.</p>
         </div>
-        <nav className="main-nav" aria-label="Main">
-          <button
-            className={route.name === 'library' ? 'nav-btn active' : 'nav-btn'}
-            onClick={() => setRoute({ name: 'library' })}
-          >
-            Library
-          </button>
-          <button
-            className={route.name === 'profile' ? 'nav-btn active' : 'nav-btn'}
-            onClick={() => setRoute({ name: 'profile' })}
-          >
-            Fit profile
-          </button>
-          <button
-            className={route.name === 'add' ? 'nav-btn active' : 'nav-btn'}
-            onClick={() => setRoute({ name: 'add' })}
-          >
-            Add pattern
-          </button>
-        </nav>
+        <div className="header-side">
+          <div className="unit-toggle" role="group" aria-label="Display unit">
+            <span className="muted small">Show in</span>
+            <button
+              className={store.displayUnit === 'in' ? 'nav-btn active' : 'nav-btn'}
+              aria-pressed={store.displayUnit === 'in'}
+              onClick={() => store.actions.setDisplayUnit('in')}
+            >
+              Inches
+            </button>
+            <button
+              className={store.displayUnit === 'cm' ? 'nav-btn active' : 'nav-btn'}
+              aria-pressed={store.displayUnit === 'cm'}
+              onClick={() => store.actions.setDisplayUnit('cm')}
+            >
+              cm
+            </button>
+          </div>
+          <nav className="main-nav" aria-label="Main">
+            <button
+              className={route.name === 'library' ? 'nav-btn active' : 'nav-btn'}
+              onClick={() => setRoute({ name: 'library' })}
+            >
+              Library
+            </button>
+            <button
+              className={route.name === 'profile' ? 'nav-btn active' : 'nav-btn'}
+              onClick={() => setRoute({ name: 'profile' })}
+            >
+              Fit profile
+            </button>
+            <button
+              className={route.name === 'add' ? 'nav-btn active' : 'nav-btn'}
+              onClick={() => setRoute({ name: 'add' })}
+            >
+              Add pattern
+            </button>
+          </nav>
+        </div>
       </header>
 
       <main>

@@ -121,3 +121,23 @@ describe('golden regressions — TCK Flax phrasings (tests/golden/flax-worsted)'
     expect(detectMeasurementBasis('The sizing table lists finished garment measurements.')).toBe('finished');
   });
 });
+
+describe('metric gauge statements (cm spans normalize to per-inch)', () => {
+  it('"18 sts & 24 rows = 10 cm" → 4.57 sts/in, 6.1 rows/in', () => {
+    const g = parseGaugeStatement('gauge: 18 sts & 24 rows = 10 cm in stocking stitch.');
+    expect(g?.stsPerIn).toBe(4.57);
+    expect(g?.rowsPerIn).toBe(6.1); // 24 / 3.937 = 6.096
+    expect(g?.overIn).toBeCloseTo(3.94, 2);
+  });
+
+  it('"24 sts / 10 cm" density phrasing → 6.1 sts/in', () => {
+    const g = parseGaugeStatement('24 sts / 10 cm');
+    expect(g?.stsPerIn).toBe(6.1);
+  });
+
+  it('explicit inch token wins when both units are quoted', () => {
+    const g = parseGaugeStatement('20 sts & 28 rows = 4" (10 cm) in St st');
+    expect(g?.stsPerIn).toBe(5);
+    expect(g?.rowsPerIn).toBe(7);
+  });
+});

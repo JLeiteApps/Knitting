@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { applyIntent } from '@knitting/engine'
+import { fmtLen, fromCanonicalInches, toCanonicalInches } from '../units'
 import type { FitProfile, Intent, ModificationRequest } from '@knitting/shared'
 import { INTENT_BACKING, INTENT_LABELS, INTENT_ORDER, draftIntent, missingSlots } from '../intents'
 import { newId } from '../store'
@@ -81,7 +82,9 @@ export default function NewModification({
         raw,
         params,
       }
-      const { sheet, validation } = applyIntent(pattern, request, profile ?? NO_PROFILE)
+      const { sheet, validation } = applyIntent(pattern, request, profile ?? NO_PROFILE, {
+        unit: store.displayUnit,
+      })
       store.actions.addResult({
         id,
         patternName: pattern.meta.name,
@@ -110,14 +113,20 @@ export default function NewModification({
               {pattern.sizing.labels.map((l, i) => (
                 <option key={i} value={i}>
                   {l}
-                  {pattern.sizing.bustOrChestIn[i] ? ` — ${pattern.sizing.bustOrChestIn[i]}" bust` : ''}
+                  {pattern.sizing.bustOrChestIn[i] ? ` — ${fmtLen(pattern.sizing.bustOrChestIn[i]!, store.displayUnit)} bust` : ''}
                 </option>
               ))}
             </select>
           </label>
           <label className="field">
             <span>Fit profile</span>
-            <select value={profileId} onChange={(e) => setProfileId(e.target.value)}>
+            <select
+              value={profileId}
+              onChange={(e) => {
+                setProfileId(e.target.value)
+                store.actions.setActiveProfile(e.target.value || null)
+              }}
+            >
               <option value="">— none —</option>
               {store.profiles.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -190,15 +199,18 @@ export default function NewModification({
                   </select>
                 </label>
                 <label className="field">
-                  <span>Target ease (in) — overrides tier</span>
+                  <span>Target ease ({store.displayUnit === 'cm' ? 'cm' : 'in'}) — overrides tier</span>
                   <input
                     type="number"
                     step="0.5"
-                    value={params.targetEaseIn ?? ''}
+                    value={params.targetEaseIn === undefined ? '' : fromCanonicalInches(params.targetEaseIn, store.displayUnit)}
                     onChange={(e) =>
                       setParams({
                         ...params,
-                        targetEaseIn: e.target.value === '' ? undefined : Number(e.target.value),
+                        targetEaseIn:
+                          e.target.value === ''
+                            ? undefined
+                            : toCanonicalInches(Number(e.target.value), store.displayUnit),
                       })
                     }
                   />
@@ -237,13 +249,19 @@ export default function NewModification({
             )}
             {(params.kind === 'body_length' || params.kind === 'sleeve_length') && (
               <label className="field">
-                <span>Change (inches; negative shortens)</span>
+                <span>
+                  Change ({store.displayUnit === 'cm' ? 'cm' : 'inches'}; negative shortens)
+                </span>
                 <input
                   type="number"
                   step="0.5"
-                  value={params.deltaIn}
+                  value={fromCanonicalInches(params.deltaIn, store.displayUnit)}
                   onChange={(e) =>
-                    setParams({ ...params, deltaIn: Number(e.target.value) } as typeof params)
+                    setParams({
+                      ...params,
+                      deltaIn:
+                        e.target.value === '' ? 0 : toCanonicalInches(Number(e.target.value), store.displayUnit),
+                    } as typeof params)
                   }
                 />
               </label>

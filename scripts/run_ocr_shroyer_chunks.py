@@ -21,10 +21,22 @@ from paddleocr import PaddleOCRVL
 CHUNK_DIR = Path(r"C:\Projects\Knitting\ocr_output\shroyer_chunks")
 OUT_DIR = Path(r"C:\Projects\Knitting\ocr_output\paddle_out")
 DONE_DIR = Path(r"C:\Projects\Knitting\ocr_output\shroyer_chunks_done")
+# Optional targeting: one chunk filename per line (e.g. "chunk_051_075.pdf"),
+# processed in file order. Absent/empty -> all pending chunks in name order.
+TARGETS_FILE = Path(r"C:\Projects\Knitting\ocr_output\shroyer_targets.txt")
 
 chunks = sorted(CHUNK_DIR.glob("chunk_*.pdf"))
 if not chunks:
     raise SystemExit(f"No chunk PDFs in {CHUNK_DIR} — run scripts/split_pdf.py first")
+
+if TARGETS_FILE.exists():
+    wanted = [ln.strip() for ln in TARGETS_FILE.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    by_name = {c.name: c for c in chunks}
+    unknown = [w for w in wanted if w not in by_name]
+    if unknown:
+        raise SystemExit(f"targets file names unknown chunks: {unknown}")
+    chunks = [by_name[w] for w in wanted]
+    print(f"TARGETS ACTIVE: {len(chunks)} chunks in priority order", flush=True)
 
 DONE_DIR.mkdir(parents=True, exist_ok=True)
 OUT_DIR.mkdir(parents=True, exist_ok=True)

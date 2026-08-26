@@ -18,6 +18,7 @@ import {
   verticalDart,
 } from './darts.js';
 import { recommendSizeByUpperTorso, UPPER_TORSO_EASE_TIERS } from './ease.js';
+import { fmtLen, type DisplayUnit } from './units.js';
 import type {
   DimensionCheck,
   FitProfile,
@@ -39,9 +40,12 @@ export function applyIntent(
   pattern: Pattern,
   request: ModificationRequest,
   profile: FitProfile,
+  opts?: { unit?: DisplayUnit },
 ): { sheet: ModificationSheet; validation: ValidationReport; modified: Pattern } {
   const sizeIndex = request.sizeIndex ?? 0;
-  const ctx = { pattern, request, profile, sizeIndex };
+  const unit: DisplayUnit = opts?.unit ?? profile.displayUnit ?? 'in';
+  const L = (inches: number, digits?: 2) => fmtLen(inches, unit, digits ? { digits } : undefined);
+  const ctx: Ctx = { pattern, request, profile, sizeIndex, L };
   const steps: SheetStep[] = [];
   const warnings: string[] = [];
   let modified: Pattern = structuredClone(pattern);
@@ -113,10 +117,10 @@ function applySizeEase(
   steps.push({
     id: 'size-selection',
     title: `Knit size ${ctx.pattern.sizing.labels[rec.sizeIndex] ?? `#${rec.sizeIndex + 1}`}`,
-    instruction: `Choose the size with a ${rec.finishedBustIn}" finished bust (real ease at your upper torso: ${rec.upperTorsoEaseIn}").`,
+    instruction: `Choose the size with a ${ctx.L(rec.finishedBustIn)} finished bust (real ease at your upper torso: ${ctx.L(rec.upperTorsoEaseIn)}).`,
     math: [
-      `upper torso ${upperTorso}" + target ease ${ease}" = ${upperTorso + ease}"`,
-      `nearest finished bust across sizes = ${rec.finishedBustIn}"`,
+      `upper torso ${ctx.L(upperTorso)} + target ease ${ctx.L(ease)} = ${ctx.L(upperTorso + ease)}`,
+      `nearest finished bust across sizes = ${ctx.L(rec.finishedBustIn)}`,
     ],
     refs: ['Herzog §19.1', 'engine: recommendSizeByUpperTorso'],
   });
@@ -126,8 +130,8 @@ function applySizeEase(
       steps.push({
         id: 'size-bust-note',
         title: 'Bust accommodation advised',
-        instruction: `This size gives ${bustEase.toFixed(2)}" ease at your FULL bust — run "bust accommodation" next.`,
-        math: [`finished ${rec.finishedBustIn}" − full bust ${ctx.profile.fullBustIn}" = ${bustEase.toFixed(2)}"`],
+        instruction: `This size gives ${ctx.L(bustEase, 2)} ease at your FULL bust — run "bust accommodation" next.`,
+        math: [`finished ${ctx.L(rec.finishedBustIn)} − full bust ${ctx.L(ctx.profile.fullBustIn)} = ${ctx.L(bustEase, 2)}`],
         refs: ['Herzog §19.1–19.2', 'engine: negativeEaseLengthCompensation'],
       });
     }
@@ -191,9 +195,9 @@ function applyGaugeConversion(
   if (rgFrom && p.userRowsPerIn) {
     const drift = rowGaugeDrift(bodyLengthIn(modified), rgFrom, p.userRowsPerIn);
     warnings.push(
-      `Row-gauge drift ${drift.toFixed(2)}" over the body ${drift >= ROW_GAUGE_ACTION_THRESHOLD_IN
-        ? '— EXCEEDS the 0.25" action threshold: prefer work-to-length output (KB §17.2)'
-        : '(below the 0.25" action threshold)'}`,
+      `Row-gauge drift ${ctx.L(drift, 2)} over the body ${drift >= ROW_GAUGE_ACTION_THRESHOLD_IN
+        ? `— EXCEEDS the ${ctx.L(ROW_GAUGE_ACTION_THRESHOLD_IN)} action threshold: prefer work-to-length output (KB §17.2)`
+        : `(below the ${ctx.L(ROW_GAUGE_ACTION_THRESHOLD_IN)} action threshold)`}`,
     );
   } else {
     warnings.push('Row gauge missing (pattern or user) — all row-derived output is work-to-length (KB §17.2 step 6).');
@@ -232,14 +236,14 @@ function applyBodyLength(
   steps.push({
     id: 'body-length',
     sectionId: body.id,
-    title: `Body ${p.deltaIn >= 0 ? 'lengthened' : 'shortened'} by ${Math.abs(p.deltaIn)}"`,
+    title: `Body ${p.deltaIn >= 0 ? 'lengthened' : 'shortened'} by ${ctx.L(Math.abs(p.deltaIn))}`,
     instruction:
       `Work the PLAIN span only (outside any waist shaping): ${rowsPerIn
         ? `add/omit ${Math.abs(Math.round(p.deltaIn * rowsPerIn))} ${body.method === 'in_the_round' ? 'rounds' : 'rows'}, `
-        : ''}or simply work until the piece measures ${round2(newIn)}".`,
+        : ''}or simply work until the piece measures ${ctx.L(newIn)}.`,
     math: [
-      `old length ${round2(oldIn ?? 0)}" ${p.deltaIn >= 0 ? '+' : '−'} ${Math.abs(p.deltaIn)}" = ${round2(newIn)}"`,
-      rowsPerIn ? `${round2(newIn)}" × ${rowsPerIn} rows/in = ${Math.round(newIn * rowsPerIn)} rows` : 'no row gauge — work-to-length (KB §17.2)',
+      `old length ${ctx.L(oldIn ?? 0)} ${p.deltaIn >= 0 ? '+' : '−'} ${ctx.L(Math.abs(p.deltaIn))} = ${ctx.L(newIn)}`,
+      rowsPerIn ? `${ctx.L(newIn)} × ${rowsPerIn} rows/in = ${Math.round(newIn * rowsPerIn)} rows` : 'no row gauge — work-to-length (KB §17.2)',
     ],
     refs: ['KB §11 hem rule', 'KB §17.2 step 3', 'engine: work-to-length'],
   });
@@ -287,7 +291,7 @@ function applySleeveLength(
   const steps: SheetStep[] = [{
     id: 'sleeve-rerate',
     sectionId: sleeve.id,
-    title: `Sleeve ${p.deltaIn >= 0 ? 'lengthened' : 'shortened'} by ${Math.abs(p.deltaIn)}" (taper re-rated)`,
+    title: `Sleeve ${p.deltaIn >= 0 ? 'lengthened' : 'shortened'} by ${ctx.L(Math.abs(p.deltaIn))} (taper re-rated)`,
     instruction:
       `Dec rounds now ${describeSplit(taper.groups)} — keep ≥1" even at the top and the cuff rows unchanged.`,
     math: [
@@ -351,12 +355,12 @@ function applyBust(
     steps.push({
       id: 'bust-vertical',
       sectionId: front.id,
-      title: `Vertical bust darts: +${d.dartWidthIn.toFixed(2)}" front width`,
+      title: `Vertical bust darts: +${ctx.L(d.dartWidthIn, 2)} front width`,
       instruction:
         `Increase ${perSide} st(s) at each dart line every 4 rows to the bust apex, then remove the same ${perSide} st(s) at each neck edge before the shoulder (net stitch count unchanged).`,
       math: [
-        `${prof.fullBustIn}" − ${prof.upperTorsoIn}" − ${subFor(tightness)}" (tightness) = ${d.dartWidthIn.toFixed(2)}" dart`,
-        `${d.dartWidthIn.toFixed(2)}" × ${gauge.stsPerIn} sts/in ÷ 2 halves = ${perSide} sts per half`,
+        `${ctx.L(prof.fullBustIn!)} − ${ctx.L(prof.upperTorsoIn!)} − ${ctx.L(subFor(tightness))} (tightness) = ${ctx.L(d.dartWidthIn, 2)} dart`,
+        `${ctx.L(d.dartWidthIn, 2)} × ${gauge.stsPerIn} sts/in ÷ 2 halves = ${perSide} sts per half`,
         'Σ: +inc events and −neck decs cancel exactly (endsAt unchanged)',
       ],
       refs: ['Herzog §19.3', 'engine: verticalDart'],
@@ -381,11 +385,11 @@ function applyBust(
         sectionId: front.id,
         title: `Short-row bust darts: ${a.rows} rows (${a.pairs} pairs)`,
         instruction:
-          `Starting when the piece measures ${place.startAtIn}", work ${a.pairs} pairs of short rows under the fullest part of the bust; finish ≥1" before armhole shaping. Shortest pair ≈ 2" wider than your apex-to-apex span; longest stops ~½" from each side seam.`,
+          `Starting when the piece measures ${ctx.L(place.startAtIn)}, work ${a.pairs} pairs of short rows under the fullest part of the bust; finish ≥${ctx.L(1)} before armhole shaping. Shortest pair ≈ ${ctx.L(2)} wider than your apex-to-apex span; longest stops ~${ctx.L(0.5)} from each side seam.`,
         math: [
-          `front ${prof.frontHemToShoulderIn}" − back ${prof.backHemToShoulderIn}" − allowance ${subForSr(tightness)}" = ${a.amountIn.toFixed(2)}"`,
-          `${a.amountIn.toFixed(2)}" × ${gauge.rowsPerIn ?? 7} rows/in → floor to even = ${a.rows} rows`,
-          `start at hem-to-armhole − 2" = ${place.startAtIn}"`,
+          `front ${ctx.L(prof.frontHemToShoulderIn!)} − back ${ctx.L(prof.backHemToShoulderIn!)} − allowance ${ctx.L(subForSr(tightness))} = ${ctx.L(a.amountIn, 2)}`,
+          `${ctx.L(a.amountIn, 2)} × ${gauge.rowsPerIn ?? 7} rows/in → floor to even = ${a.rows} rows`,
+          `start at hem-to-armhole − ${ctx.L(2)} = ${ctx.L(place.startAtIn)}`,
         ],
         refs: ['Herzog §19.4', 'engine: shortRowDartAmount/shortRowPlacement'],
       });
@@ -398,9 +402,9 @@ function applyBust(
       const comp = negativeEaseLengthCompensation(-bustEase);
       steps.push({
         id: 'bust-length-comp',
-        title: `Add ${comp.toFixed(2)}" body length (negative-ease compensation)`,
-        instruction: `Because the bust sits ${(-bustEase).toFixed(2)}" into negative ease, knit the body ${comp.toFixed(2)}" longer than measured.`,
-        math: [`${(-bustEase).toFixed(2)}" × ⅔ = ${comp.toFixed(2)}"`],
+        title: `Add ${ctx.L(comp, 2)} body length (negative-ease compensation)`,
+        instruction: `Because the bust sits ${ctx.L(-bustEase, 2)} into negative ease, knit the body ${ctx.L(comp, 2)} longer than measured.`,
+        math: [`${ctx.L(-bustEase, 2)} × ⅔ = ${ctx.L(comp, 2)}`],
         refs: ['Herzog §19.5', 'engine: negativeEaseLengthCompensation'],
       });
     }
@@ -480,6 +484,8 @@ interface Ctx {
   request: ModificationRequest;
   profile: FitProfile;
   sizeIndex: number;
+  /** Display-unit length formatter for human-facing strings. */
+  L: (inches: number, digits?: 2) => string;
 }
 
 /**

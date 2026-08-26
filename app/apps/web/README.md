@@ -22,3 +22,11 @@ table, Σ list, print stylesheet, JSON export).
 Sheets render only after every Σ-check passes and schematic drift stays under
 0.25" per dimension (app plan §2). State is local-first: localStorage now,
 IndexedDB/Dexie at M5.
+
+## Units (policy A2)
+Inches are canonical internally; cm exists only at the boundaries, one exact
+conversion each: pattern import ("Pattern units" dropdown — declared, never
+guessed), user input (fields shown in the active unit convert ÷2.54), and
+output (the engine formats lengths at string generation via fmtLen — never
+post-processing). The profile's "Show measurements in" dropdown drives the UI;
+the header toggle mirrors it and sticks the choice on the active profile.

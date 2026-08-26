@@ -1,9 +1,11 @@
 import { INTENT_LABELS } from '../intents'
+import { fmtLen } from '../units'
 import type { StoredResult } from '../store'
 import type { ScreenProps } from '../App'
 
 export default function SheetScreen({
   result,
+  store,
   go,
 }: ScreenProps & { result: StoredResult | undefined }) {
   if (!result) {
@@ -52,7 +54,7 @@ export default function SheetScreen({
         <h3>Validation gate</h3>
         {validation.pass ? (
           <div className="panel ok">
-            PASSED — every Σ-check exact and every dimension within 0.25&Prime; drift
+            PASSED — every Σ-check exact and every dimension within {fmtLen(0.25, store.displayUnit)} drift
             ({validation.dimensionChecks.length} dimension
             {validation.dimensionChecks.length === 1 ? '' : 's'}, {validation.sumChecks.length} Σ-check
             {validation.sumChecks.length === 1 ? '' : 's'}).
@@ -84,12 +86,12 @@ export default function SheetScreen({
                       <td>
                         <code>{d.dimension}</code>
                       </td>
-                      <td>{d.targetIn}"</td>
-                      <td>{d.recomputedIn}"</td>
-                      <td>{d.driftIn}"</td>
+                      <td>{fmtLen(d.targetIn, store.displayUnit)}</td>
+                      <td>{fmtLen(d.recomputedIn, store.displayUnit)}</td>
+                      <td>{fmtLen(d.driftIn, store.displayUnit)}</td>
                       <td>
                         <span className={d.pass ? 'chip ok' : 'chip err'}>
-                          {d.pass ? 'pass' : '≥ 0.25"'}
+                          {d.pass ? 'pass' : `≥ ${fmtLen(0.25, store.displayUnit)}`}
                         </span>
                       </td>
                     </tr>

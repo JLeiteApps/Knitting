@@ -72,17 +72,32 @@ export interface ParsedGauge {
 }
 
 /** `18 sts & 28 rows = 4" (10 cm) in St st` → normalized gauge block fields.
- * Also accepts in-the-round phrasing (TCK golden: `18 sts & 24 rounds / 4"`). */
+ * Also accepts in-the-round phrasing (TCK golden: `18 sts & 24 rounds / 4"`)
+ * and metric spans (`= 10 cm`, `24 sts / 10 cm` → per-inch via 2.54). */
 export function parseGaugeStatement(text: string): ParsedGauge | null {
   const sts = text.match(/(\d+(?:\.\d+)?)\s*sts/i);
   const rows = text.match(/(\d+(?:\.\d+)?)\s*(?:rows|rounds)\b/i);
-  const over = text.match(/=\s*(\d+(?:\.\d+)?)\s*(?:"|”|in\b|inches)/i)
+  const overInch = text.match(/=\s*(\d+(?:\.\d+)?)\s*(?:"|”|in\b|inches)/i)
     ?? text.match(/over\s+(\d+(?:\.\d+)?)\s*(?:"|”|in\b|inches)/i)
     ?? text.match(/\/\s*(\d+(?:\.\d+)?)\s*(?:"|”|in\b|inches)/i);
+  const overCm = text.match(/=\s*(\d+(?:\.\d+)?)\s*cm\b/i)
+    ?? text.match(/over\s+(\d+(?:\.\d+)?)\s*cm\b/i)
+    ?? text.match(/\/\s*(\d+(?:\.\d+)?)\s*cm\b/i);
+  // metric stitch density: `24 sts / 10 cm`
+  const perCm = text.match(/(\d+(?:\.\d+)?)\s*(?:sts|stitches)\s*(?:\/|per)\s*(\d+(?:\.\d+)?)\s*cm/i);
   const perIn = text.match(/(\d+(?:\.\d+)?)\s*sts\s*(?:\/|per)\s*in/i);
-  if (!sts && !perIn) return null;
+  if (!sts && !perIn && !perCm) return null;
   const stitch = text.match(/in\s+([A-Za-z][A-Za-z .]+?)(?:\.|,|$)/);
-  if (perIn && !over) {
+  if (perCm) {
+    const sp = Number(perCm[1]) / cmToIn(Number(perCm[2]));
+    const rp = rows ? Number(rows[1]) / cmToIn(Number(perCm[2])) : null;
+    return {
+      stsOver: Math.round(sp * 4), rowsOver: rp === null ? null : Math.round(rp * 4),
+      overIn: 4, stsPerIn: Math.round(sp * 100) / 100, rowsPerIn: rp === null ? null : Math.round(rp * 100) / 100,
+      stitchPattern: stitch?.[1]?.trim() ?? null,
+    };
+  }
+  if (perIn && !overInch) {
     const sp = Number(perIn[1]);
     const rp = rows ? Number(rows[1]) : null;
     return {
@@ -90,14 +105,18 @@ export function parseGaugeStatement(text: string): ParsedGauge | null {
       overIn: 4, stsPerIn: sp, rowsPerIn: rp, stitchPattern: stitch?.[1]?.trim() ?? null,
     };
   }
-  if (!sts || !over) return null;
-  const overIn = Number(over[1]);
+  if (!sts) return null;
+  // An explicit inch span wins when both units are quoted (`4" (10 cm)`).
+  const over = overInch ?? overCm;
+  if (!over) return null;
+  const spanIn = over === overCm ? cmToIn(Number(over[1])) : Number(over[1]);
   const stsOver = Number(sts[1]);
   const rowsOver = rows ? Number(rows[1]) : null;
+  const r2 = (x: number) => Math.round(x * 100) / 100;
   return {
-    stsOver, rowsOver, overIn,
-    stsPerIn: stsOver / overIn,
-    rowsPerIn: rowsOver === null ? null : rowsOver / overIn,
+    stsOver, rowsOver, overIn: spanIn,
+    stsPerIn: r2(stsOver / spanIn),
+    rowsPerIn: rowsOver === null ? null : r2(rowsOver / spanIn),
     stitchPattern: stitch?.[1]?.trim() ?? null,
   };
 }

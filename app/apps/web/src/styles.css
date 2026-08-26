@@ -582,3 +582,34 @@ pre.math {
     border: 2px solid #000;
   }
 }
+
+/* header unit toggle */
+
+.header-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.unit-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.unit-toggle .nav-btn {
+  min-height: 36px;
+  padding: 4px 12px;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 420px) {
+  .header-side {
+    align-items: stretch;
+  }
+
+  .unit-toggle {
+    justify-content: flex-end;
+  }
+}

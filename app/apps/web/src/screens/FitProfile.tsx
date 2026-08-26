@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FitProfile } from '@knitting/shared'
 import { newId } from '../store'
+import { fromCanonicalInches, toCanonicalInches, type DisplayUnit } from '../units'
 import type { ScreenProps } from '../App'
 
 type FieldKey =
@@ -32,7 +33,12 @@ const FIELDS: Array<{ key: FieldKey; label: string; help: string }> = [
   { key: 'backMidHipIn', label: 'Back mid-hip width (in)', help: 'Same horizontal on the back.' },
 ]
 
-const emptyForm = (): { label: string; values: Record<FieldKey, string> } => ({
+const emptyForm = (unit: DisplayUnit): {
+  label: string
+  unit: DisplayUnit
+  values: Record<FieldKey, string>
+} => ({
+  unit,
   label: '',
   values: {
     upperTorsoIn: '',
@@ -46,33 +52,39 @@ const emptyForm = (): { label: string; values: Record<FieldKey, string> } => ({
 
 export default function FitProfile({ store }: ScreenProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState(emptyForm())
+  const [form, setForm] = useState(emptyForm(store.displayUnit))
+  const unit = form.unit
 
   const edit = (p: FitProfile) => {
     setEditingId(p.id)
+    const u = p.displayUnit ?? 'in'
+    const disp = (v: number | undefined) =>
+      v === undefined ? '' : String(fromCanonicalInches(v, u))
     setForm({
       label: p.label,
+      unit: u,
       values: {
-        upperTorsoIn: p.upperTorsoIn?.toString() ?? '',
-        fullBustIn: p.fullBustIn?.toString() ?? '',
-        frontHemToShoulderIn: p.frontHemToShoulderIn?.toString() ?? '',
-        backHemToShoulderIn: p.backHemToShoulderIn?.toString() ?? '',
-        frontMidHipIn: p.frontMidHipIn?.toString() ?? '',
-        backMidHipIn: p.backMidHipIn?.toString() ?? '',
+        upperTorsoIn: disp(p.upperTorsoIn),
+        fullBustIn: disp(p.fullBustIn),
+        frontHemToShoulderIn: disp(p.frontHemToShoulderIn),
+        backHemToShoulderIn: disp(p.backHemToShoulderIn),
+        frontMidHipIn: disp(p.frontMidHipIn),
+        backMidHipIn: disp(p.backMidHipIn),
       },
     })
   }
 
   const save = () => {
     const label = form.label.trim() || 'My profile'
+    // Fields are typed in the form's unit → canonical inches at the boundary.
     const num = (s: string): number | undefined => {
       const v = Number(s)
-      return s.trim() !== '' && Number.isFinite(v) && v > 0 ? v : undefined
+      return s.trim() !== '' && Number.isFinite(v) && v > 0 ? toCanonicalInches(v, form.unit) : undefined
     }
     const profile: FitProfile = {
       id: editingId ?? newId(),
       label,
-      displayUnit: 'in',
+      displayUnit: form.unit,
       upperTorsoIn: num(form.values.upperTorsoIn),
       fullBustIn: num(form.values.fullBustIn),
       frontHemToShoulderIn: num(form.values.frontHemToShoulderIn),
@@ -81,8 +93,30 @@ export default function FitProfile({ store }: ScreenProps) {
       backMidHipIn: num(form.values.backMidHipIn),
     }
     store.actions.saveProfile(profile)
+    store.actions.setActiveProfile(profile.id)
     setEditingId(null)
-    setForm(emptyForm())
+    setForm(emptyForm(store.displayUnit))
+  }
+
+  const switchUnit = (u: DisplayUnit) => {
+    // Convert what's typed so nothing is lost or reinterpreted.
+    const conv = (s: string) => {
+      const v = Number(s)
+      if (s.trim() === '' || !Number.isFinite(v) || v <= 0) return s
+      return String(fromCanonicalInches(toCanonicalInches(v, form.unit), u))
+    }
+    setForm({
+      ...form,
+      unit: u,
+      values: {
+        upperTorsoIn: conv(form.values.upperTorsoIn),
+        fullBustIn: conv(form.values.fullBustIn),
+        frontHemToShoulderIn: conv(form.values.frontHemToShoulderIn),
+        backHemToShoulderIn: conv(form.values.backHemToShoulderIn),
+        frontMidHipIn: conv(form.values.frontMidHipIn),
+        backMidHipIn: conv(form.values.backMidHipIn),
+      },
+    })
   }
 
   return (
@@ -121,6 +155,13 @@ export default function FitProfile({ store }: ScreenProps) {
 
       <section className="card">
         <h2>{editingId ? 'Edit profile' : 'New profile'}</h2>
+        <label className="field">
+          <span>Show measurements in</span>
+          <select value={unit} onChange={(e) => switchUnit(e.target.value as DisplayUnit)}>
+            <option value="in">Inches</option>
+            <option value="cm">Centimeters</option>
+          </select>
+        </label>
         <div className="form-grid">
           <label className="field">
             <span>Profile name</span>
@@ -132,7 +173,7 @@ export default function FitProfile({ store }: ScreenProps) {
           </label>
           {FIELDS.map((f) => (
             <label key={f.key} className="field">
-              <span>{f.label}</span>
+              <span>{f.label.replace(' (in)', unit === 'cm' ? ' (cm)' : ' (in)')}</span>
               <input
                 type="number"
                 inputMode="decimal"
@@ -155,7 +196,7 @@ export default function FitProfile({ store }: ScreenProps) {
             <button
               onClick={() => {
                 setEditingId(null)
-                setForm(emptyForm())
+                setForm(emptyForm(store.displayUnit))
               }}
             >
               Cancel

@@ -128,3 +128,17 @@ describe('golden: TCK Flax worsted (tests/golden/flax-worsted/expectations.md)',
     expect(validatePattern(modified)).toEqual([]);
   });
 });
+
+describe('golden: cm display unit (engine generates cm at the source)', () => {
+  it('F2-cm — body length +2 (size M) renders cm terms from exact values', () => {
+    const { sheet } = applyIntent(
+      flaxGolden(),
+      req('body_length_change', { kind: 'body_length', deltaIn: 2 }),
+      profile({ displayUnit: 'cm' }),
+    );
+    // 14"→35.56→35.6, 2"→5.08→5.1, 16"→40.64→40.6 (each term from the exact inch value)
+    expect(sheet.steps[0]?.math.join(' ')).toContain('35.6 cm + 5.1 cm = 40.6 cm');
+    expect(sheet.steps[0]?.instruction).toContain('40.6 cm');
+    expect(sheet.steps[0]?.instruction).not.toContain('"');
+  });
+});

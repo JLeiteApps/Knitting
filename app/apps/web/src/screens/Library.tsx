@@ -1,5 +1,6 @@
 import { validatePattern } from '@knitting/schema'
 import { INTENT_LABELS } from '../intents'
+import { fmtLen } from '../units'
 import type { ScreenProps } from '../App'
 
 export default function Library({ store, go }: ScreenProps) {
@@ -30,7 +31,7 @@ export default function Library({ store, go }: ScreenProps) {
                   <strong>{p.meta.name}</strong>
                   <div className="muted small">
                     {p.construction.type.replaceAll('_', ' ')} · sizes {p.sizing.labels.join(' / ')}
-                    {bust.length > 0 && ` · bust ${bust[0]}–${bust[bust.length - 1]}"`}
+                    {bust.length > 0 && ` · bust ${fmtLen(bust[0]!, store.displayUnit)}–${fmtLen(bust[bust.length - 1]!, store.displayUnit)}`}
                     {gauge && ` · ${gauge.stsPerIn} sts/in · ${p.sizing.measurementBasis}`}
                   </div>
                   <div className="chip-row">
