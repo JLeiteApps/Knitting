@@ -1,8 +1,9 @@
 # SPEC — App Plan (approved 2026-08-24)
 
 > The approved build plan for the web app → Android/iOS product. Decisions locked with the user:
-> **Web PWA + Capacitor** (one codebase) · **LLM via small serverless backend now, BYOK toggle
-> later** · **MVP = focused vertical slice** (2 construction families, 5 intents, full pipeline).
+> **Web PWA + Capacitor** (one codebase) · **Secretless BYOK relay** (user key per-request,
+> never stored server-side — shipped 2026-08-27; see web README security posture)
+> · **MVP = focused vertical slice** (2 construction families, 5 intents, full pipeline).
 
 ## 1. Repository layout (knowledge folders untouched)
 ```
