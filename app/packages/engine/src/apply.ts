@@ -10,7 +10,7 @@ import {
   rowGaugeDrift,
   ROW_GAUGE_ACTION_THRESHOLD_IN,
 } from './gauge.js';
-import { sumEvents, sumRows, taperSchedule } from './shaping.js';
+import { evenIntervalSplit, sumEvents, sumRows, taperSchedule } from './shaping.js';
 import {
   negativeEaseLengthCompensation,
   shortRowDartAmount,
@@ -218,32 +218,43 @@ function applyBodyLength(
 ): { modified: Pattern; steps: SheetStep[] } {
   const p = ctx.request.params;
   if (p.kind !== 'body_length') throw new Error('unreachable');
-  const body = modified.sections.find((s) => s.piece === 'body' || s.piece === 'body_tube');
-  if (!body) throw new Error('no body section found');
+  // Family-aware: one tube body, OR a flat back+front PAIR (same length change
+  // applies to each piece — the flat-set-in golden contract).
+  const tube = modified.sections.find((s) => s.piece === 'body' || s.piece === 'body_tube');
+  const bodyPieces = tube
+    ? [tube]
+    : modified.sections.filter((s) => s.piece === 'back' || s.piece === 'front');
+  if (bodyPieces.length === 0) throw new Error('no body section found');
+  const body = bodyPieces[0]!;
   const rowsPerIn = modified.gauge.find((g) => g.primary)?.rowsPerIn;
   const i = ctx.sizeIndex;
   const oldIn = body.length?.in?.[i];
   const newIn = (oldIn ?? bodyLengthIn(modified)) + p.deltaIn;
   const steps: SheetStep[] = [];
-  if (body.length?.in) {
-    body.length.in = body.length.in.map((v, idx) => (idx === i ? round2(newIn) : v));
+  for (const piece of bodyPieces) {
+    if (piece.length?.in) {
+      piece.length.in = piece.length.in.map((v, idx) => (idx === i ? round2(newIn) : v));
+    }
+    if (piece.length?.rows && rowsPerIn) {
+      piece.length.rows = piece.length.rows.map((v, idx) =>
+        idx === i ? Math.max(1, Math.round(newIn * rowsPerIn)) : v,
+      );
+    }
   }
-  if (body.length?.rows && rowsPerIn) {
-    body.length.rows = body.length.rows.map((v, idx) =>
-      idx === i ? Math.max(1, Math.round(newIn * rowsPerIn)) : v,
-    );
-  }
+  const unitWord = body.method === 'in_the_round' ? 'rounds' : 'rows';
   steps.push({
     id: 'body-length',
-    sectionId: body.id,
-    title: `Body ${p.deltaIn >= 0 ? 'lengthened' : 'shortened'} by ${ctx.L(Math.abs(p.deltaIn))}`,
+    sectionId: bodyPieces.map((s) => s.id).join('+'),
+    title: `Body ${p.deltaIn >= 0 ? 'lengthened' : 'shortened'} by ${ctx.L(Math.abs(p.deltaIn))}${
+      bodyPieces.length > 1 ? ` (both ${bodyPieces.map((s) => s.id).join(' and ')} pieces)` : ''
+    }`,
     instruction:
       `Work the PLAIN span only (outside any waist shaping): ${rowsPerIn
-        ? `add/omit ${Math.abs(Math.round(p.deltaIn * rowsPerIn))} ${body.method === 'in_the_round' ? 'rounds' : 'rows'}, `
-        : ''}or simply work until the piece measures ${ctx.L(newIn)}.`,
+        ? `add/omit ${Math.abs(Math.round(p.deltaIn * rowsPerIn))} ${unitWord} on each body piece, `
+        : ''}or simply work until each piece measures ${ctx.L(newIn)}.`,
     math: [
       `old length ${ctx.L(oldIn ?? 0)} ${p.deltaIn >= 0 ? '+' : '−'} ${ctx.L(Math.abs(p.deltaIn))} = ${ctx.L(newIn)}`,
-      rowsPerIn ? `${ctx.L(newIn)} × ${rowsPerIn} rows/in = ${Math.round(newIn * rowsPerIn)} rows` : 'no row gauge — work-to-length (KB §17.2)',
+      rowsPerIn ? `${ctx.L(newIn)} × ${rowsPerIn} rows/in = ${Math.round(newIn * rowsPerIn)} ${unitWord}` : 'no row gauge — work-to-length (KB §17.2)',
     ],
     refs: ['KB §11 hem rule', 'KB §17.2 step 3', 'engine: work-to-length'],
   });
@@ -266,6 +277,17 @@ function applySleeveLength(
   const oldRows = sleeve.length?.rows?.[i];
   if (!oldRows) throw new Error('sleeve section has no row length');
   const available = Math.max(2, Math.round(oldRows + p.deltaIn * rowsPerIn));
+
+  // Family-aware (flat-set-in golden contract): a BOTTOM-UP cap sleeve carries
+  // taper incs + cap BO/decs. Length changes go to the TAPER (re-spaced to the
+  // new available rows minus the fixed cap span); cap rows are never touched.
+  // Σ is preserved because the inc COUNT is unchanged.
+  const taperInc = sleeve.events.find((e) => e.type === 'inc' && e.schedule);
+  const capEvents = sleeve.events.filter((e) => e.type === 'dec' || e.type === 'bind_off');
+  if (taperInc && capEvents.length > 0) {
+    return reSpaceCapSleeveTaper(ctx, modified, sleeve, taperInc, capEvents, available, i, p.deltaIn);
+  }
+
   const upper = sleeve.startsWith.sts[i]!;
   const cuff = sleeve.endsAt.sts?.[i];
   if (!cuff) throw new Error('sleeve section needs an end checkpoint (cuff sts)');
@@ -302,6 +324,58 @@ function applySleeveLength(
     refs: ['KB §16.2', 'engine: taperSchedule'],
   }];
   return { modified, steps };
+}
+
+/** Bottom-up cap sleeve: re-space the taper incs over (newRows − cap span),
+ *  leaving cap shaping untouched. Inc count unchanged → Σ preserved. */
+function reSpaceCapSleeveTaper(
+  ctx: Ctx,
+  modified: Pattern,
+  sleeve: Section,
+  taperInc: ShapingEvent,
+  capEvents: ShapingEvent[],
+  available: number,
+  i: number,
+  deltaIn: number,
+): { modified: Pattern; steps: SheetStep[] } {
+  const incs = (taperInc.schedule!.times[i] ?? 0) + (taperInc.schedule!.variantTimes?.[i] ?? 0);
+  if (incs <= 0) throw new Error('sleeve taper has no scheduled increases');
+  const capSpan = capEvents.reduce(
+    (acc, ev) =>
+      acc +
+      (ev.schedule
+        ? (ev.schedule.intervalRows[i] ?? 0) * (ev.schedule.times[i] ?? 0) +
+          (ev.schedule.variantRows?.[i] ?? 0) * (ev.schedule.variantTimes?.[i] ?? 0)
+        : 0),
+    0,
+  );
+  const taperRows = Math.max(incs, available - capSpan);
+  const split = evenIntervalSplit(incs, taperRows);
+  const sch = taperInc.schedule!;
+  sch.intervalRows = perSize(sch.intervalRows, i, modified.sizing.sizeCount, split.groups[0]?.interval ?? 1);
+  sch.times = perSize(sch.times, i, modified.sizing.sizeCount, split.groups[0]?.times ?? 1);
+  sch.variantRows = perSize(sch.variantRows, i, modified.sizing.sizeCount, split.groups[1]?.interval ?? 0);
+  sch.variantTimes = perSize(sch.variantTimes, i, modified.sizing.sizeCount, split.groups[1]?.times ?? 0);
+  if (sleeve.length?.rows) {
+    sleeve.length.rows = sleeve.length.rows.map((v, idx) => (idx === i ? available : v));
+  }
+  if (sleeve.length?.in) {
+    sleeve.length.in = sleeve.length.in.map((v, idx) => (idx === i ? round2(v + deltaIn) : v));
+  }
+  const step: SheetStep = {
+    id: 'sleeve-rerate',
+    sectionId: sleeve.id,
+    title: `Sleeve ${deltaIn >= 0 ? 'lengthened' : 'shortened'} by ${ctx.L(Math.abs(deltaIn))} (taper re-spaced, cap rows kept)`,
+    instruction:
+      `Increase rounds now ${describeSplit(split.groups)}; work the cap exactly as written — cap rows are never re-rated (KB §16.2).`,
+    math: [
+      `sleeve rows ${available} − cap span ${capSpan} = ${taperRows} taper rows for ${incs} increase rounds`,
+      `split: ${describeSplit(split.groups)} · Σ rows = ${sumRows(split)} · Σ incs = ${sumEvents(split)}`,
+      'VERIFY: Σ checks pass (inc count unchanged → Σ intact)',
+    ],
+    refs: ['KB §16.2', 'engine: evenIntervalSplit (cap-aware route)'],
+  };
+  return { modified, steps: [step] };
 }
 
 // ── Intent 2: bust accommodation (Herzog §19.2–19.5) ───────────────────────

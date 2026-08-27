@@ -54,32 +54,41 @@ describe('golden: flat set-in fixture (tests/golden/flat-setin-like/expectations
     ).toThrowError(/size 2: residue 1 not divisible by 2/);
   });
 
-  it('FS3 — sleeve re-rate on a multi-event cap sleeve BREAKS Σ — gate must block (engine TODO)', () => {
-    // The sleeve intent assumes a single-event top-down taper section
-    // (startsWith=upper arm → endsAt=cuff). This bottom-up cap sleeve has
-    // inc + BO + dec: the re-rate reconciles only 54→32 (11 decs) and the
-    // untouched inc/BO leave Σ broken (54+20−8−22 = 44 ≠ 32) → the gate
-    // FAILS and the sheet is withheld. Pinned as the current honest contract;
-    // cap-sleeve-aware re-rate is an engine TODO (plan log).
-    const { sheet, validation } = applyIntent(
+  it('FS3 — sleeve re-rate is CAP-AWARE: taper re-spaced, cap rows kept, gate passes', () => {
+    // Family-aware fix: bottom-up cap sleeve (inc + BO + dec) → the taper incs
+    // are re-spaced over (120 − cap span 35) = 85 rows; 10 incs → 8×5 + 9×5;
+    // cap untouched; inc count unchanged → Σ intact at every size.
+    const { sheet, validation, modified } = applyIntent(
       flatSetInLike(),
       req('sleeve_length_change', { kind: 'sleeve_length', deltaIn: -1.5 }, 1),
       profile(),
     );
-    expect(sheet.steps[0]?.instruction).toContain('every 10 ×1 + every 11 ×10');
-    expect(validation.pass).toBe(false);
-    expect(
-      validation.sumChecks.some((s) => s.path === 'sections[sleeve]' && !s.ok),
-    ).toBe(true);
+    expect(sheet.steps[0]?.title).toContain('(taper re-spaced, cap rows kept)');
+    expect(sheet.steps[0]?.instruction).toContain('every 8 ×5 + every 9 ×5');
+    expect(sheet.steps[0]?.math.join(' ')).toContain('120 − cap span 35 = 85 taper rows for 10 increase rounds');
+    const sleeve = modified.sections.find((s) => s.id === 'sleeve')!;
+    expect(sleeve.length?.rows?.[1]).toBe(120);
+    expect(sleeve.length?.in?.[1]).toBe(17);
+    expect(validatePattern(modified)).toEqual([]); // full multi-size Σ + spans clean
+    expect(validation.pass).toBe(true);
   });
 
-  it('FS4 — KNOWN LIMITATION: body-length intent on flat back+front pair throws (engine TODO)', () => {
-    expect(() =>
-      applyIntent(
-        flatSetInLike(),
-        req('body_length_change', { kind: 'body_length', deltaIn: 2 }),
-        profile(),
-      ),
-    ).toThrowError(/no body section found/);
+  it('FS4 — body-length on the FLAT back+front pair updates BOTH pieces, gate passes', () => {
+    // Family-aware fix: no tube body → the back+front pair takes the same
+    // change (flat-set-in contract): S 14" → 16", 98 → 112 rows on each piece.
+    const { sheet, validation, modified } = applyIntent(
+      flatSetInLike(),
+      req('body_length_change', { kind: 'body_length', deltaIn: 2 }),
+      profile(),
+    );
+    expect(sheet.steps[0]?.title).toContain('both back and front pieces');
+    const back = modified.sections.find((s) => s.id === 'back')!;
+    const front = modified.sections.find((s) => s.id === 'front')!;
+    expect(back.length?.in?.[0]).toBe(16);
+    expect(front.length?.in?.[0]).toBe(16);
+    expect(back.length?.rows?.[0]).toBe(112); // round(16 × 7)
+    expect(front.length?.rows?.[0]).toBe(112);
+    expect(validatePattern(modified)).toEqual([]);
+    expect(validation.pass).toBe(true);
   });
 });

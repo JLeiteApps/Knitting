@@ -22,15 +22,12 @@ M: 95→105, 75→83, residue 0 (would pass). **L: 105→116, 81→89 → 116−
 residue 1 (odd) → THROWS** `size 2: residue 1 not divisible by 2` — the honest §6
 diagnostic; parity makes it unavoidable for this design (105 odd CO must end odd).
 
-## Case FS3 — sleeve re-rate on a multi-event cap sleeve → GATE BLOCKS (engine TODO)
-The sleeve intent assumes a single-event top-down taper (startsWith=upper arm,
-endsAt=cuff). On this bottom-up cap sleeve (inc + BO + dec) it re-rates only the
-cuff-CO→cap-top pair (54→32 = 11 decs over 120 rows: every 10 ×1 + every 11 ×10),
-leaving Σ broken at M (54+20−8−22 = 44 ≠ 32) → **validation.pass = false, sheet
-withheld**. Pinned as the current honest contract; cap-sleeve-aware re-rate is an
-engine TODO.
+## Case FS3 — sleeve re-rate is CAP-AWARE (FIXED 2026-08-27)
+Family-aware route for bottom-up cap sleeves (inc + BO + dec): taper incs re-spaced
+over (new rows − cap span); cap rows never re-rated. M: rows 130 → 120; cap span =
+BO 1 + dec 2×17 = 35 → 85 taper rows for 10 incs → **every 8 ×5 + every 9 ×5**
+(Σ rows 85, Σ incs 10). Inc count unchanged → Σ intact at every size; gate PASSES.
 
-## Case FS4 — KNOWN LIMITATION (documents current contract)
-Body-length intent on FLAT pieces throws ("no body section found"): the engine's
-body lookup handles `body`/`body_tube` (tube), not a flat back+front PAIR. Flat-pair
-support is an engine TODO recorded in the plan.
+## Case FS4 — body-length on the flat back+front pair (FIXED 2026-08-27)
+No tube body → the pair takes the same change on each piece: S 14″ → 16″,
+98 → 112 rows on BOTH back and front; validatePattern clean; gate PASSES.
