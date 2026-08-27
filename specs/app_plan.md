@@ -33,8 +33,10 @@ knowledge pipeline (gitignored: copyrighted/regenerable). **Git + .gitignore** e
 
 ## 3. Spec order (Phase 4)
 1. ✅ `pattern_schema.md` v0.1 · 2. ✅ `parser_grammar.md` v0.1 · 3. ✅ `intent_grammar.md` v0.1
-4. `engine_functions.md` (§2/§3/§6/§7/§10/§13–§19 math; grade-by-table) ·
-5. `validation_loop.md` (§13.8 recompute, Σ checks, drift report) — then `app_ux.md`.
+4. ✅ `engine_functions.md` (2026-08-27 — codifies the implemented engine incl. family-aware
+   routes, §6 rebalancer + parity note, units) ·
+5. ✅ `validation_loop.md` (2026-08-27 — two-tier gate, §13.8 recompute, golden criteria) —
+   `app_ux.md` remains (screens already shipped; doc is descriptive polish).
 
 ## 4. Engine data tables (KB → typed data)
 CYC tables (§2 verified) · Budd ladders · ease tiers (VK bust + Herzog upper-torso) · EPS % ·
