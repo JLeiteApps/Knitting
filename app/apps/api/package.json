@@ -5,7 +5,6 @@
   "type": "module",
   "main": "extract.mjs",
   "scripts": {
-    "dev": "node dev-server.mjs",
     "test": "vitest run"
   }
 }

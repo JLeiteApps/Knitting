@@ -6,7 +6,6 @@ import {
   buildSections,
   classifyCheckpointLabel,
   detectMeasurementBasis,
-  enforceEvidence,
   extractSectionCandidates,
   findSectionHeaders,
   findSizeLists,
@@ -19,7 +18,7 @@ import {
   type Segment,
 } from '@knitting/parser'
 import { pdfToText } from '../pdf'
-import { callExtractViaApi } from '../api'
+import { callExtractViaApi, getLlmKey, setLlmKey } from '../api'
 import { cmToIn } from '../units'
 import type { ScreenProps } from '../App'
 
@@ -85,6 +84,7 @@ export default function AddPattern({ store, go }: ScreenProps) {
   const [pdfName, setPdfName] = useState<string | null>(null)
   const [paste, setPaste] = useState('')
   const [llmSizing, setLlmSizing] = useState<LlmOutcome>({ status: 'idle', kept: [], dropped: [] })
+  const [llmKey, setLlmKeyState] = useState(getLlmKey())
   const [llmGauge, setLlmGauge] = useState<LlmOutcome>({ status: 'idle', kept: [], dropped: [] })
   const [error, setError] = useState('')
 
@@ -157,12 +157,12 @@ export default function AddPattern({ store, go }: ScreenProps) {
         setLlm({ status: 'running', kept: [], dropped: [] })
         const out = await callExtractViaApi(seg.text, kind, fields)
         if (cancelled) return
-        if (!out.ok || !out.fields) {
+        if (!out.ok || !out.kept) {
           setLlm({ status: 'error', kept: [], dropped: [], error: out.error })
           continue
         }
-        const gate = enforceEvidence(out.fields, seg.text)
-        setLlm({ status: 'done', kept: gate.kept, dropped: gate.dropped })
+        // kept/dropped arrive ALREADY schema-validated and evidence-gated
+        setLlm({ status: 'done', kept: out.kept, dropped: out.dropped ?? [] })
       }
     }
     void run()
@@ -281,6 +281,22 @@ export default function AddPattern({ store, go }: ScreenProps) {
           </select>
           <small className="muted">
             Stored canonically in inches either way — this tells the parser how to read the numbers.
+          </small>
+        </label>
+        <label className="field">
+          <span>Your LLM API key (BYOK)</span>
+          <input
+            type="password"
+            autoComplete="off"
+            value={llmKey}
+            onChange={(e) => {
+              setLlmKeyState(e.target.value)
+              setLlmKey(e.target.value)
+            }}
+            placeholder="sk-… (optional — enables LLM-assisted fields)"
+          />
+          <small className="muted">
+            Stored only on this device; sent per-request to the relay and never saved anywhere else.
           </small>
         </label>
         <label className="file-drop">
@@ -404,8 +420,13 @@ export default function AddPattern({ store, go }: ScreenProps) {
               </div>
               {o.status === 'error' && (
                 <p className="muted small">
-                  {o.error} — falling back to the notation layer only. Start the API adapter
-                  (apps/api) and retry to get LLM-assisted fields.
+                  {o.error === 'no-key'
+                    ? 'Add your LLM API key above to enable LLM-assisted fields.'
+                    : o.error === 'bad-key'
+                      ? 'The key was rejected — check it above.'
+                      : o.error === 'too-large'
+                        ? 'Segment too large — the deterministic layer covers it.'
+                        : 'API unavailable — falling back to the notation layer only.'}
                 </p>
               )}
               {llmRows(o).map((r, i) => (
