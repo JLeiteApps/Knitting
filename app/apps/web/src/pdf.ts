@@ -1,30 +1,38 @@
-import * as pdfjs from 'pdfjs-dist'
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.js?url'
-
-pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
-
 /**
- * Client-side text-layer extraction (app plan §2: PDF stays on the device).
- * Pages are tagged `## PDF page N` — the exact marker segment() expects, so
- * page numbers flow through to field provenance.
+ * Client-side PDF entry: posts the raw bytes to the confinement worker and
+ * never lets pdf.js touch the page context. Caps live inside the worker.
  */
+export interface PdfProgress {
+  done: number
+  total: number
+}
+
 export async function pdfToText(
   file: File,
-  onProgress?: (done: number, total: number) => void,
-): Promise<string> {
+  onProgress?: (p: PdfProgress) => void,
+): Promise<{ text: string; pages: number; truncated: boolean }> {
+  const worker = new Worker(new URL('./pdf/worker.ts', import.meta.url), { type: 'module' })
   const data = new Uint8Array(await file.arrayBuffer())
-  const doc = await pdfjs.getDocument({ data }).promise
-  const pages: string[] = []
-  for (let i = 1; i <= doc.numPages; i++) {
-    const page = await doc.getPage(i)
-    const content = await page.getTextContent()
-    let text = ''
-    for (const item of content.items) {
-      if (!('str' in item)) continue
-      text += item.str + (item.hasEOL ? '\n' : ' ')
+  return new Promise((resolve, reject) => {
+    worker.onmessage = (ev: MessageEvent) => {
+      const msg = ev.data as
+        | { kind: 'progress'; done: number; total: number }
+        | { kind: 'done'; text: string; pages: number; truncated: boolean }
+        | { kind: 'error'; message: string }
+      if (msg.kind === 'progress') {
+        onProgress?.({ done: msg.done, total: msg.total })
+      } else if (msg.kind === 'done') {
+        worker.terminate()
+        resolve({ text: msg.text, pages: msg.pages, truncated: msg.truncated })
+      } else {
+        worker.terminate()
+        reject(new Error(msg.message))
+      }
     }
-    pages.push(`## PDF page ${i}\n${text}`)
-    onProgress?.(i, doc.numPages)
-  }
-  return pages.join('\n\n')
+    worker.onerror = () => {
+      worker.terminate()
+      reject(new Error('Could not read this PDF.'))
+    }
+    void worker.postMessage({ data })
+  })
 }

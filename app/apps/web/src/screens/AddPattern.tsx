@@ -92,8 +92,8 @@ export default function AddPattern({ store, go }: ScreenProps) {
     setBusy(true)
     setError('')
     try {
-      const extracted = await pdfToText(file, (done, total) => setProgress(`Extracting text — page ${done}/${total}`))
-      setText(extracted)
+      const extracted = await pdfToText(file, (p) => setProgress(`Extracting text — page ${p.done}/${p.total}`))
+      setText(extracted.text)
       setPdfName(file.name)
       setName(file.name.replace(/\.pdf$/i, ''))
       setStage('review')
