@@ -4,6 +4,7 @@ import type { FitProfile, ModificationSheet, ValidationReport } from '@knitting/
 import { flaxLike } from '@knitting/engine'
 import type { DisplayUnit } from './units'
 import { loadAll, saveAll } from './storage'
+import { openVault, sealVault, type VaultEnvelope } from './vault'
 
 /**
  * App state for the shell. Local-first (app plan §2): everything lives on the
@@ -30,6 +31,9 @@ interface AppState {
   patternUnit: DisplayUnit
   /** Profile whose displayUnit drives the UI (set on select/save). */
   activeProfileId: string | null
+  /** At-rest-encrypted profiles (opt-in). When set, profiles[] is empty
+   *  until unlocked with the passphrase for this session. */
+  profileVault: VaultEnvelope | null
 }
 
 const KEY = 'knitting.web.v1'
@@ -46,6 +50,7 @@ function load(): AppState {
         displayUnit: parsed.displayUnit ?? 'in',
         patternUnit: parsed.patternUnit ?? 'in',
         activeProfileId: parsed.activeProfileId ?? null,
+        profileVault: parsed.profileVault ?? null,
       }
     }
   } catch {
@@ -58,6 +63,7 @@ function load(): AppState {
     displayUnit: 'in',
     patternUnit: 'in',
     activeProfileId: null,
+    profileVault: null,
   }
 }
 
@@ -154,6 +160,23 @@ export function useStore() {
     setState((s) => ({ ...s, patternUnit: unit }))
   }, [])
 
+  /** Encrypt all profiles into the vault and WIPE plaintext from every store. */
+  const lockProfiles = useCallback(async (passphrase: string): Promise<boolean> => {
+    if (!passphrase) return false
+    const envelope = await sealVault(JSON.stringify(state.profiles), passphrase)
+    setState((s) => ({ ...s, profiles: [], profileVault: envelope, activeProfileId: null }))
+    return true
+  }, [state.profiles])
+
+  /** Decrypt the vault for this session (passphrase held in memory only). */
+  const unlockProfiles = useCallback(async (passphrase: string): Promise<boolean> => {
+    if (!state.profileVault) return false
+    const json = await openVault(state.profileVault, passphrase)
+    if (json === null) return false
+    setState((s) => ({ ...s, profiles: JSON.parse(json) as FitProfile[] }))
+    return true
+  }, [state.profileVault])
+
   const actions = useMemo(
     () => ({
       addPattern,
@@ -164,6 +187,8 @@ export function useStore() {
       setDisplayUnit,
       setActiveProfile,
       setPatternUnit,
+      lockProfiles,
+      unlockProfiles,
     }),
     [
       addPattern,
@@ -174,6 +199,8 @@ export function useStore() {
       setDisplayUnit,
       setActiveProfile,
       setPatternUnit,
+      lockProfiles,
+      unlockProfiles,
     ],
   )
 

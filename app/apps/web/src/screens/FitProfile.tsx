@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FitProfile } from '@knitting/shared'
-import { newId } from '../store'
+import { newId, useStore } from '../store'
 import { fromCanonicalInches, toCanonicalInches, type DisplayUnit } from '../units'
 import type { ScreenProps } from '../App'
 
@@ -49,6 +49,79 @@ const emptyForm = (unit: DisplayUnit): {
     backMidHipIn: '',
   },
 })
+
+function ProfileVaultUnlock({ store }: { store: ReturnType<typeof useStore> }) {
+  const [pass, setPass] = useState('')
+  const [failed, setFailed] = useState(false)
+  return (
+    <div className="panel info">
+      <strong>Profiles are locked (encrypted on this device)</strong>
+      <div className="row">
+        <input
+          type="password"
+          autoComplete="off"
+          placeholder="Vault passphrase"
+          value={pass}
+          onChange={(e) => setPass(e.target.value)}
+        />
+        <button
+          className="primary"
+          onClick={async () => {
+            setFailed(!(await store.actions.unlockProfiles(pass)))
+            setPass('')
+          }}
+        >
+          Unlock
+        </button>
+      </div>
+      {failed && <p className="note">Wrong passphrase — try again.</p>}
+    </div>
+  )
+}
+
+function ProfileVaultLock({ store }: { store: ReturnType<typeof useStore> }) {
+  const [pass, setPass] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [open, setOpen] = useState(false)
+  if (!open) {
+    return (
+      <p className="muted small">
+        Measurements are stored in plain text on this device.{' '}
+        <button onClick={() => setOpen(true)}>Encrypt profiles (passphrase)…</button>
+      </p>
+    )
+  }
+  const ready = pass.length >= 6 && pass === confirm
+  return (
+    <div className="panel warn">
+      <strong>Encrypt profiles at rest (AES-GCM)</strong>
+      <p className="note">
+        The passphrase is never stored; losing it loses the profiles. They stay encrypted on this
+        device until unlocked each session.
+      </p>
+      <label className="field">
+        <span>Passphrase (min 6 chars)</span>
+        <input type="password" autoComplete="new-password" value={pass} onChange={(e) => setPass(e.target.value)} />
+      </label>
+      <label className="field">
+        <span>Confirm</span>
+        <input type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+      </label>
+      <div className="row">
+        <button
+          className="primary"
+          disabled={!ready || store.profiles.length === 0}
+          onClick={async () => {
+            if (await store.actions.lockProfiles(pass)) setOpen(false)
+          }}
+        >
+          Lock profiles
+        </button>
+        <button onClick={() => setOpen(false)}>Cancel</button>
+      </div>
+    </div>
+  )
+}
 
 export default function FitProfile({ store }: ScreenProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -123,6 +196,11 @@ export default function FitProfile({ store }: ScreenProps) {
     <>
       <section className="card">
         <h2>Fit profiles</h2>
+        {store.profileVault && store.profiles.length === 0 ? (
+          <ProfileVaultUnlock store={store} />
+        ) : (
+          <ProfileVaultLock store={store} />
+        )}
         <p className="muted">
           Herzog 12-measurement protocol fields used by the MVP intents. Engine math runs in inches
           regardless of display preference.
