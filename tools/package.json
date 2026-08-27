@@ -1,0 +1,16 @@
+{
+  "name": "knitting-book-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local OCR/extraction tooling for the knowledge pipeline (books, renders, banded crops). Deliberately OUTSIDE the app workspaces: the shipping app's install tree carries no native-binary download chain (tar/node-pre-gyp criticals) at all.",
+  "scripts": {
+    "probe": "node probe_text.js",
+    "extract": "node extract_book.js",
+    "render": "node render_pages.js"
+  },
+  "dependencies": {
+    "canvas": "^3.2.3",
+    "pdfjs-dist": "^3.11.174",
+    "tesseract.js": "^7.0.0"
+  }
+}

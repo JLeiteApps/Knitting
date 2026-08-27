@@ -1,0 +1,19 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "rangeStrategy": "bump",
+  "packageRules": [
+    {
+      "description": "pdfjs-dist security upgrades are high priority (parsed PDFs are untrusted input)",
+      "matchPackageNames": ["pdfjs-dist"],
+      "labels": ["security"],
+      "automerge": false
+    },
+    {
+      "description": "tools/ book-OCR deps are machine-local; low urgency",
+      "matchPackageNames": ["canvas", "tesseract.js"],
+      "labels": ["tools"],
+      "enabled": false
+    }
+  ]
+}

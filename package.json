@@ -15,13 +15,9 @@
     "dev:web": "npm run dev --workspace @knitting/web",
     "build:web": "npm run build --workspace @knitting/web"
   },
-  "dependencies": {
-    "canvas": "^3.2.3",
-    "tesseract.js": "^7.0.0"
-  },
   "devDependencies": {
     "typescript": "^5.6.0",
-    "vitest": "^2.1.0"
+    "vitest": "^4.1.11"
   },
   "allowScripts": {
     "canvas@3.2.3": true,
