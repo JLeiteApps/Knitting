@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Pattern } from '@knitting/schema'
 import type { FitProfile, ModificationSheet, ValidationReport } from '@knitting/shared'
 import { flaxLike } from '@knitting/engine'
 import type { DisplayUnit } from './units'
+import { loadAll, saveAll } from './storage'
 
 /**
  * App state for the shell. Local-first (app plan §2): everything lives on the
@@ -62,6 +63,26 @@ function load(): AppState {
 
 export function useStore() {
   const [state, setState] = useState<AppState>(load)
+  const hydrated = useRef(false)
+
+  // M5: IndexedDB (Dexie) hydrates once — it is the durable source of truth;
+  // localStorage remains the synchronous bootstrap cache.
+  useEffect(() => {
+    void loadAll().then((persisted) => {
+      if (persisted && !hydrated.current) {
+        hydrated.current = true
+        setState((s) => ({
+          ...s,
+          patterns: persisted.patterns.length > 0 ? persisted.patterns : s.patterns,
+          profiles: persisted.profiles,
+          results: persisted.results.slice(0, 50),
+          displayUnit: persisted.settings.displayUnit,
+          patternUnit: persisted.settings.patternUnit,
+          activeProfileId: persisted.settings.activeProfileId,
+        }))
+      }
+    })
+  }, [])
 
   useEffect(() => {
     try {
@@ -69,6 +90,16 @@ export function useStore() {
     } catch {
       // storage full/blocked: app keeps working in-memory
     }
+    void saveAll({
+      patterns: state.patterns,
+      profiles: state.profiles,
+      results: state.results,
+      settings: {
+        displayUnit: state.displayUnit,
+        patternUnit: state.patternUnit,
+        activeProfileId: state.activeProfileId,
+      },
+    })
   }, [state])
 
   const addPattern = useCallback((pattern: Pattern) => {
