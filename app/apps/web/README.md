@@ -30,3 +30,11 @@ guessed), user input (fields shown in the active unit convert ÷2.54), and
 output (the engine formats lengths at string generation via fmtLen — never
 post-processing). The profile's "Show measurements in" dropdown drives the UI;
 the header toggle mirrors it and sticks the choice on the active profile.
+
+## Security posture (2026-08-27 hardening)
+- **PDF parsing is confined**: pdf.js runs in a dedicated worker (`isEvalSupported: false`, 20 MB / 60-page caps) — a parser compromise lands with no DOM/storage access; the page talks postMessage only.
+- **No server-held secrets**: the extract relay is BYOK — your API key is sent per-request, used once, never stored anywhere but this device. Caps: 8 KB segment / 12 fields / 32 KB body; endpoints must be https.
+- **LLM output is untrusted data**: strict shape validation and the verbatim-evidence gate run BEFORE any field enters app state.
+- **Strict CSP** (no inline script/style) + HSTS/nosniff/DENY headers via `vercel.json`; the dev API runs in-process inside the Vite server (no second listener).
+- **Opt-in profile vault**: AES-GCM at rest with a passphrase (Fit profile → Encrypt); default remains local-first plaintext, honestly labeled.
+- **Dependency hygiene**: book-OCR tooling lives in `tools/` outside the app tree; CI gates on `npm audit --audit-level=high`; Renovate flags pdfjs-dist as security-priority.
