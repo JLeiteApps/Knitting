@@ -3,6 +3,7 @@ import { applyIntent } from '@knitting/engine'
 import { fmtLen, fromCanonicalInches, toCanonicalInches } from '../units'
 import type { FitProfile, Intent, ModificationRequest } from '@knitting/shared'
 import { INTENT_BACKING, INTENT_LABELS, INTENT_ORDER, draftIntent, missingSlots } from '../intents'
+import { classifyViaApi, summarizePattern } from '../classify'
 import { newId } from '../store'
 import type { ScreenProps } from '../App'
 
@@ -36,6 +37,7 @@ export default function NewModification({
   const [sizeIndex, setSizeIndex] = useState(0)
   const [profileId, setProfileId] = useState(store.profiles[0]?.id ?? '')
   const [error, setError] = useState('')
+  const [drafting, setDrafting] = useState(false)
 
   if (!pattern) {
     return (
@@ -53,14 +55,52 @@ export default function NewModification({
   const missing = missingSlots(intent, params, profile)
   const backing = INTENT_BACKING[intent]
 
-  const draft = () => {
+  const draft = async () => {
+    setError('')
+    setDrafting(true)
+    try {
+      const result = await classifyViaApi(raw, summarizePattern(pattern))
+      if (result.status === 'ok') {
+        setIntent(result.intent)
+        setParams(result.params)
+        const notes: string[] = []
+        if (result.clarifyingQuestion) notes.push(result.clarifyingQuestion)
+        for (const slot of result.missingSlots) notes.push(`Still needed: ${slot}`)
+        notes.push('Drafted by the LLM classifier — review the card before running.')
+        setNotes(notes)
+        return
+      }
+      if (result.status === 'unsupported') {
+        setNotes([
+          result.clarifyingQuestion ?? 'That request is outside the five supported modifications for now.',
+          'Pick the closest intent below and adjust its parameters, or rephrase.',
+        ])
+        return
+      }
+      // Classifier unavailable → offline heuristic, with the reason shown.
+      const reason =
+        result.error === 'no-key'
+          ? 'No LLM key set — add one on the Add pattern screen to use the classifier.'
+          : `Classifier unavailable (${result.error}) — used the offline heuristic.`
+      applyHeuristic(reason)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setDrafting(false)
+    }
+  }
+
+  const applyHeuristic = (prefixNote?: string) => {
     const d = draftIntent(raw)
     if (d) {
       setIntent(d.intent)
       setParams(d.params)
-      setNotes(d.notes)
+      setNotes([...(prefixNote ? [prefixNote] : []), ...d.notes])
     } else {
-      setNotes(['No intent recognized from the text — pick one below and set its parameters.'])
+      setNotes([
+        ...(prefixNote ? [prefixNote] : []),
+        'No intent recognized from the text — pick one below and set its parameters.',
+      ])
     }
   }
 
@@ -146,11 +186,13 @@ export default function NewModification({
           />
         </label>
         <div className="row">
-          <button onClick={draft}>Draft intent from text</button>
+          <button onClick={() => void draft()} disabled={drafting || raw.trim().length === 0}>
+            {drafting ? 'Classifying…' : 'Draft intent from text'}
+          </button>
         </div>
         <p className="muted small">
-          Heuristic drafting (placeholder for the /api classifier) — review the card below before
-          confirming.
+          LLM classifier (your key, sent per request) with offline heuristic fallback — review the
+          card below before confirming.
         </p>
       </section>
 

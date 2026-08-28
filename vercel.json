@@ -1,7 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "functions": { "app/apps/api/extract.mjs": { "runtime": "nodejs20.x" } },
-  "routes": [{ "src": "/api/extract", "dest": "app/apps/api/extract.mjs" }],
+  "functions": {
+    "app/apps/api/extract.mjs": { "runtime": "nodejs20.x" },
+    "app/apps/api/classify.mjs": { "runtime": "nodejs20.x" }
+  },
+  "routes": [
+    { "src": "/api/extract", "dest": "app/apps/api/extract.mjs" },
+    { "src": "/api/classify", "dest": "app/apps/api/classify.mjs" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

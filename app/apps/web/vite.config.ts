@@ -13,16 +13,24 @@ const KNITTING_PACKAGES = [
 ]
 
 /**
- * In-process /api/extract middleware: the serverless handler (BYOK relay)
- * mounted INSIDE the Vite dev server — one localhost-bound process, no
- * second listener to expose. Replaces dev-server.mjs entirely.
+ * In-process /api middleware: the serverless handlers (BYOK relays) mounted
+ * INSIDE the Vite dev server — one localhost-bound process, no second
+ * listener to expose. Replaces dev-server.mjs entirely.
  */
-function extractApiPlugin(): Plugin {
+const API_HANDLERS: Record<string, () => Promise<{ default: ApiHandler }>> = {
+  '/api/extract': () => import('../../apps/api/extract.mjs'),
+  '/api/classify': () => import('../../apps/api/classify.mjs'),
+}
+
+type ApiHandler = (req: IncomingMessage, res: ServerResponse) => void | Promise<void>
+
+function apiMiddlewarePlugin(): Plugin {
   return {
-    name: 'extract-api-middleware',
+    name: 'api-middleware',
     configureServer(server) {
       server.middlewares.use((req: IncomingMessage, res: ServerResponse, next) => {
-        if (!req.url?.startsWith('/api/extract')) return next()
+        const prefix = Object.keys(API_HANDLERS).find((r) => req.url?.startsWith(r))
+        if (!prefix) return next()
         if (req.method !== 'POST') {
           res.statusCode = 405
           res.end()
@@ -44,9 +52,7 @@ function extractApiPlugin(): Plugin {
             res.end(JSON.stringify({ error: 'invalid JSON body' }))
             return
           }
-          void import('../../apps/api/extract.mjs').then(({ default: handler }) =>
-            handler(req, res),
-          )
+          void API_HANDLERS[prefix]().then(({ default: handler }) => handler(req, res))
         })
       })
     },
@@ -54,6 +60,6 @@ function extractApiPlugin(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), extractApiPlugin()],
+  plugins: [react(), apiMiddlewarePlugin()],
   optimizeDeps: { exclude: KNITTING_PACKAGES },
 })
