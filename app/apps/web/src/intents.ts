@@ -12,6 +12,10 @@ export const INTENT_LABELS: Record<Intent, string> = {
   body_length_change: 'Body length',
   sleeve_length_change: 'Sleeve length',
   gauge_conversion: 'Gauge conversion',
+  waist_shape_reposition: 'Waist shaping position',
+  hip_width_change: 'Hip width',
+  upper_arm_width_change: 'Upper-arm width',
+  back_neck_raise: 'Back-neck raise',
 }
 
 export const INTENT_ORDER: Intent[] = [
@@ -20,6 +24,10 @@ export const INTENT_ORDER: Intent[] = [
   'body_length_change',
   'sleeve_length_change',
   'gauge_conversion',
+  'waist_shape_reposition',
+  'hip_width_change',
+  'upper_arm_width_change',
+  'back_neck_raise',
 ]
 
 /** Confirmation-card backing (intent grammar §6): engine functions + KB refs. */
@@ -32,6 +40,10 @@ export const INTENT_BACKING: Record<Intent, { engine: string; refs: string }> = 
   body_length_change: { engine: 'plain-span work-to-length recompute', refs: 'KB §11 hem rule; §17.2' },
   sleeve_length_change: { engine: 'taperSchedule', refs: 'KB §16.2' },
   gauge_conversion: { engine: 'convertCount · convertRows · §6 rebalance', refs: 'KB §2/§6; §17.2 drift policy' },
+  waist_shape_reposition: { engine: 'waist landmark span validator', refs: 'KB §11; Radcliffe §25.1' },
+  hip_width_change: { engine: 'repeat-aware hip shaping', refs: 'KB §11; Radcliffe §25.3' },
+  upper_arm_width_change: { engine: 'coupled sleeve/armhole width', refs: 'KB §11; Radcliffe §25.3' },
+  back_neck_raise: { engine: 'short-row placement', refs: 'KB §10.3b; Herzog §19.4' },
 };
 
 /**
@@ -77,6 +89,18 @@ export function missingSlots(
       if (params.kind === 'gauge' && !(params.userStsPerIn > 0)) {
         q.push("What's your swatch gauge in stitches per inch?")
       }
+      break
+    case 'waist_shape_reposition':
+      if (params.kind === 'waist_reposition' && (!has(params.landmarkIn) || !Number.isFinite(params.deltaIn))) q.push('Give the waist landmark from the hem and the requested shift.')
+      break
+    case 'hip_width_change':
+      if (params.kind !== 'hip_width' || !Number.isFinite(params.deltaIn)) q.push('Give the hip width change in inches or cm.')
+      break
+    case 'upper_arm_width_change':
+      if (params.kind !== 'upper_arm_width' || !Number.isFinite(params.deltaIn)) q.push('Give the upper-arm width change in inches or cm.')
+      break
+    case 'back_neck_raise':
+      if (params.kind !== 'back_neck_raise' || !Number.isFinite(params.deltaIn)) q.push('Give the back-neck raise in inches or cm.')
       break
   }
   return q

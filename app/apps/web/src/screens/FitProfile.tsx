@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FitProfile } from '@knitting/shared'
 import { newId, useStore } from '../store'
 import { fmtLen, fromCanonicalInches, toCanonicalInches, type DisplayUnit } from '../units'
@@ -88,8 +88,10 @@ function ProfileVaultLock({ store }: { store: ReturnType<typeof useStore> }) {
   if (!open) {
     return (
       <p className="muted small">
-        Measurements are stored in plain text on this device.{' '}
-        <button onClick={() => setOpen(true)}>Encrypt profiles (passphrase)…</button>
+        {store.profileVault
+          ? 'Profiles are encrypted at rest and unlocked for this session. Saved edits are encrypted automatically. '
+          : 'Measurements are stored in plain text on this device. '}
+        <button onClick={() => setOpen(true)}>{store.profileVault ? 'Lock with a passphrase…' : 'Encrypt profiles (passphrase)…'}</button>
       </p>
     )
   }
@@ -100,6 +102,7 @@ function ProfileVaultLock({ store }: { store: ReturnType<typeof useStore> }) {
       <p className="note">
         The passphrase is never stored; losing it loses the profiles. They stay encrypted on this
         device until unlocked each session.
+        {' '}Save any open profile edits first; locking clears the editing form. The passphrase entered below protects the new snapshot.
       </p>
       <label className="field">
         <span>Passphrase (min 6 chars)</span>
@@ -114,7 +117,11 @@ function ProfileVaultLock({ store }: { store: ReturnType<typeof useStore> }) {
           className="primary"
           disabled={!ready || store.profiles.length === 0}
           onClick={async () => {
-            if (await store.actions.lockProfiles(pass)) setOpen(false)
+            if (await store.actions.lockProfiles(pass)) {
+              setPass('')
+              setConfirm('')
+              setOpen(false)
+            } else toast('Profiles could not be locked. Save your edits and try again.')
           }}
         >
           Lock profiles
@@ -129,6 +136,14 @@ export default function FitProfile({ store }: ScreenProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm(store.displayUnit))
   const unit = form.unit
+  const locked = Boolean(store.profileVault) && !store.profilesUnlocked
+
+  useEffect(() => {
+    if (locked) {
+      setEditingId(null)
+      setForm(emptyForm(store.displayUnit))
+    }
+  }, [locked, store.displayUnit])
 
   const edit = (p: FitProfile) => {
     setEditingId(p.id)
@@ -150,13 +165,20 @@ export default function FitProfile({ store }: ScreenProps) {
   }
 
   const save = () => {
+    if (locked) return
+    if (Object.values(form.values).some((s) => s.trim() !== '' && (!Number.isFinite(Number(s)) || Number(s) <= 0))) {
+      toast('Measurements must be positive numbers, or left blank.')
+      return
+    }
     const label = form.label.trim() || 'My profile'
+    if (label.length > 200) { toast('Profile names must be 200 characters or fewer.'); return }
     // Fields are typed in the form's unit → canonical inches at the boundary.
     const num = (s: string): number | undefined => {
       const v = Number(s)
       return s.trim() !== '' && Number.isFinite(v) && v > 0 ? toCanonicalInches(v, form.unit) : undefined
     }
     const profile: FitProfile = {
+      ...store.profiles.find((p) => p.id === editingId),
       id: editingId ?? newId(),
       label,
       displayUnit: form.unit,
@@ -199,7 +221,7 @@ export default function FitProfile({ store }: ScreenProps) {
     <>
       <section className="card">
         <h2>Fit profiles</h2>
-        {store.profileVault && store.profiles.length === 0 ? (
+        {locked ? (
           <ProfileVaultUnlock store={store} />
         ) : (
           <ProfileVaultLock store={store} />
@@ -208,7 +230,7 @@ export default function FitProfile({ store }: ScreenProps) {
           Herzog 12-measurement protocol fields used by the MVP intents. Engine math runs in inches
           regardless of display preference.
         </p>
-        {store.profiles.length === 0 && <p className="muted">No profiles yet.</p>}
+        {locked ? <p className="muted">Unlock to view or edit your profiles.</p> : store.profiles.length === 0 && <p className="muted">No profiles yet.</p>}
         <ul className="item-list">
           {store.profiles.map((p) => (
             <li key={p.id} className="item">
@@ -238,7 +260,7 @@ export default function FitProfile({ store }: ScreenProps) {
         </ul>
       </section>
 
-      <section className="card">
+      {!locked && <section className="card">
         <h2>{editingId ? 'Edit profile' : 'New profile'}</h2>
         <label className="field">
           <span>Show measurements in</span>
@@ -252,6 +274,7 @@ export default function FitProfile({ store }: ScreenProps) {
             <span>Profile name</span>
             <input
               value={form.label}
+              maxLength={200}
               onChange={(e) => setForm({ ...form, label: e.target.value })}
               placeholder="e.g. Jorge, winter sweaters"
             />
@@ -288,7 +311,7 @@ export default function FitProfile({ store }: ScreenProps) {
             </button>
           )}
         </div>
-      </section>
+      </section>}
     </>
   )
 }

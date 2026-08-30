@@ -55,8 +55,9 @@ Pattern
   "notes": "..." }
 ```
 
-`measurement_basis` drives the ease computation (KB §2): `to_fit` → finished = body + ease;
-`finished` → used directly; `unknown` → engine must ask the user before any width mod.
+`measurement_basis` drives the ease computation (KB §2): `finished` values may be used as finished measurements. A `to_fit` chart is
+not converted into finished circumference without independent evidence; size
+selection requires explicit finished dimensions. Unknown basis remains explicit.
 
 ## 2.2 `gauge`
 
@@ -65,20 +66,20 @@ Array — some patterns state one gauge per stitch pattern (KB §12: first liste
 ```
 { "primary": true,
   "stitch_pattern_ref": "stockinette",          // → stitch_patterns
-  "worked": "flat" | "in_the_round",
+  "worked": "flat" | "in_the_round" | "unknown",
   "sts_over": 20, "rows_over": 28, "over_in": 4.0,     // as printed
   "sts_per_in": 5.0, "rows_per_in": 7.0,              // normalized floats
   "rows_given": true,                                  // false → §17.2 step 6 fallback
   "raw": "20 sts & 28 rows = 4\" in St st" }
 ```
 
-If `rows_given: false`, engine sets `rows_per_in = null` and all row-derived outputs are flagged
-estimates (KB §12: infer 1.3–1.5× stitch gauge [conv]).
+Missing row gauge is represented by null row-gauge fields. Row-derived output
+is advisory or blocked until the gauge is supplied; no stitch-to-row ratio is inferred.
 
 ## 2.3 `schematic`
 
 Per-size finished dimensions in inches — the validation target (KB §13.8: engine recomputes these
-from counts × gauge and checks drift after every modification). Named dimensions:
+from counts ÷ gauge and checks drift after every modification). Named dimensions:
 
 ```
 { "piece": "back", "dimension": "width_at_chest", "in": [17.5, 19.5, ...], "src": "p.2 schematic" }
@@ -94,7 +95,7 @@ cardigan bust = back + 2×front + band). Field `basis: "total"|"incremental"` pe
 
 ```
 { "direction": "bottom_up" | "top_down",
-  "working": [ {"scope": "sections:1-3", "method": "flat" | "in_the_round"} ],
+  "working": [ {"scope": "sections:1-3", "method": "flat" | "in_the_round" | "unknown"} ],
   "type": <enum below>,
   "pieces": ["back","front","sleeve×2"] }
 ```
@@ -226,3 +227,19 @@ Validator: waist decs −8 and hip incs +8 → net 0 → end = start ✓; 4×8 r
 - Modification-engine function specs (§2/§3/§7/§13/§17 math) — spec 4; grading function blocked
   on A4/G2.
 - Validation-loop spec (recompute schematic vs target; drift < 0.25"/dimension) — spec 5.
+
+## Runtime additions and limits (2026-08-30)
+The TypeScript IR uses camelCase names; the examples above retain conceptual
+snake_case notation. `meta.status` distinguishes draft/accepted. Construction type
+and working method may be `unknown` in stored drafts, but not accepted patterns.
+
+Runtime validation checks imported shapes, finite numeric values, size-array
+alignment, valid method/event enums, gauge normalization and nonnegative integer
+event schedules. Starting stitches are positive; end checkpoints may be zero for
+fully closed sections. Only specific incompleteness diagnostics are allowed through
+the draft-storage boundary; malformed nested values are rejected.
+
+Unknown placeholder bust values are not finished measurements. Short-row turn
+points are stitch positions, not inch measurements. Until complete placement
+geometry is represented, those results cannot become verified. General bra-label
+conversion and the four new extension geometries remain outside the implemented IR.

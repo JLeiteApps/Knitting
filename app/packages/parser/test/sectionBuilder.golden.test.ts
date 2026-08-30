@@ -23,6 +23,12 @@ function sliceSizes(section: Section): Section {
     : section.endsAt
   return {
     ...section,
+    ...(section.length ? {
+      length: {
+        ...(section.length.rows ? { rows: ADULT.map((i) => section.length!.rows![i]!) } : {}),
+        ...(section.length.in ? { in: ADULT.map((i) => section.length!.in![i]!) } : {}),
+      },
+    } : {}),
     startsWith: { event: section.startsWith.event, sts: ADULT.map((i) => section.startsWith.sts[i]!) },
     ...(end ? { endsAt: end } : {}),
     events: section.events.map((ev) => ({
@@ -115,7 +121,7 @@ describe('buildSections — real Flax text → IR sections', () => {
     expect(longSleeve.endsAt!.sts![13]).toBe(46)
   })
 
-  it('adult S/M/L/XL subset: validatePattern has ZERO errors (full Σ + span reconciliation)', () => {
+  it('adult S/M/L/XL subset: size arrays stay aligned and incomplete schedules are flagged', () => {
     const subsetSections = sections
       .filter((s) => ['yoke', 'body', 'sleeve'].includes(s.id))
       .filter((s) => s.endsAt?.sts) // variants without a printed end are skipped by Σ anyway
@@ -136,7 +142,11 @@ describe('buildSections — real Flax text → IR sections', () => {
       sections: subsetSections,
     }
     const diags = validatePattern(pattern)
-    expect(diags.filter((d) => d.level === 'error')).toEqual([])
+    expect(diags.some((d) => d.code === 'SIZE_ARRAY_LENGTH')).toBe(false)
+    // The parser intentionally leaves row placement unknown when the source
+    // does not provide a usable interval.  Strict validation must surface
+    // that as a draft issue rather than certifying the phase from Σ alone.
+    expect(diags.some((d) => d.code === 'BAD_SCHEDULE')).toBe(true)
   })
 })
 

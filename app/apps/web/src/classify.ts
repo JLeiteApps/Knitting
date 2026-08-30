@@ -65,6 +65,10 @@ const INTENTS = new Set<Intent>([
   'body_length_change',
   'sleeve_length_change',
   'gauge_conversion',
+  'waist_shape_reposition',
+  'hip_width_change',
+  'upper_arm_width_change',
+  'back_neck_raise',
 ])
 
 const round2 = (x: number) => Math.round(x * 100) / 100
@@ -114,7 +118,7 @@ export function normalizeClassified(body: unknown): Exclude<ClassifyResult, { st
           kind: 'size_ease',
           basis: p.basis === 'bust' ? 'bust' : 'upper_torso',
           tier: p.tier === 'fitted' || p.tier === 'oversized' ? p.tier : 'average',
-          ...(easeIn !== null && easeIn !== 0 && Math.abs(easeIn) <= MAX_EASE_IN ? { targetEaseIn: easeIn } : {}),
+          ...(easeIn !== null && Math.abs(easeIn) <= MAX_EASE_IN ? { targetEaseIn: easeIn } : {}),
         },
         missingSlots,
         clarifyingQuestion,
@@ -159,7 +163,7 @@ export function normalizeClassified(body: unknown): Exclude<ClassifyResult, { st
           const spanIn = p.spanUnit === 'cm' ? cmToIn(span) : span
           if (spanIn > 0 && spanIn <= 60) {
             const perIn = round2(over / spanIn)
-            if (perIn >= 1 && perIn <= 20) stsPerIn = perIn
+          if (perIn >= 1 && perIn <= 20) stsPerIn = perIn
           }
         }
       }
@@ -176,6 +180,40 @@ export function normalizeClassified(body: unknown): Exclude<ClassifyResult, { st
         clarifyingQuestion,
       }
     }
+    case 'waist_shape_reposition': {
+      const delta = fin(p.delta)
+      const landmark = fin(p.landmark)
+      const deltaIn = delta === null ? NaN : toInches(delta, p.unit)
+      const landmarkIn = landmark === null ? NaN : toInches(landmark, p.landmarkUnit ?? p.unit)
+      return {
+        status: 'ok', intent: intentId,
+        params: {
+          kind: 'waist_reposition',
+          deltaIn: Number.isFinite(deltaIn) && Math.abs(deltaIn) <= MAX_DELTA_IN ? deltaIn : NaN,
+          landmarkIn: Number.isFinite(landmarkIn) && landmarkIn > 0 && landmarkIn <= 120 ? landmarkIn : NaN,
+        },
+        missingSlots,
+        clarifyingQuestion,
+      }
+    }
+    case 'hip_width_change':
+    case 'upper_arm_width_change':
+    case 'back_neck_raise': {
+      const delta = fin(p.delta)
+      const rawDeltaIn = delta === null ? NaN : toInches(delta, p.unit)
+      const deltaIn = Number.isFinite(rawDeltaIn) && Math.abs(rawDeltaIn) <= MAX_DELTA_IN ? rawDeltaIn : NaN
+      return {
+        status: 'ok', intent: intentId,
+        params: {
+          kind: intentId === 'hip_width_change' ? 'hip_width' : intentId === 'upper_arm_width_change' ? 'upper_arm_width' : 'back_neck_raise',
+          deltaIn,
+        },
+        missingSlots,
+        clarifyingQuestion,
+      }
+    }
+    default:
+      return null
   }
 }
 

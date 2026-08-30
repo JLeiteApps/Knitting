@@ -8,6 +8,7 @@ import Dexie from 'dexie'
 import type { Pattern } from '@knitting/schema'
 import type { FitProfile, ModificationSheet, ValidationReport } from '@knitting/shared'
 import type { DisplayUnit } from './units'
+import type { VaultEnvelope } from './vault'
 
 export interface StoredResult {
   id: string
@@ -23,13 +24,18 @@ export interface AppSettings {
   displayUnit: DisplayUnit
   patternUnit: DisplayUnit
   activeProfileId: string | null
+  profileVault: VaultEnvelope | null
+  revision?: number
 }
 
 export interface PersistedState {
   patterns: Pattern[]
   profiles: FitProfile[]
   results: StoredResult[]
-  settings: Pick<AppSettings, 'displayUnit' | 'patternUnit' | 'activeProfileId'>
+  settings: Pick<AppSettings, 'displayUnit' | 'patternUnit' | 'activeProfileId'> & { profileVault?: VaultEnvelope | null }
+  profileVault?: VaultEnvelope | null
+  settingsPresent?: boolean
+  revision?: number
 }
 
 class KnitDB extends Dexie {
@@ -46,6 +52,13 @@ class KnitDB extends Dexie {
       , profiles: 'id',
       results: 'id, createdAt',
       settings: 'key',
+    })
+    this.version(2).stores({
+      patterns: 'meta.name', profiles: 'id', results: 'id, createdAt', settings: 'key',
+    }).upgrade(async (tx) => {
+      // The vault envelope lives in settings from v2 onward. Plaintext rows
+      // remain in the default mode; vault-mode writes clear them atomically.
+      await tx.table('settings').toCollection().modify((s: AppSettings) => { s.profileVault = s.profileVault ?? null })
     })
   }
 }
@@ -69,8 +82,11 @@ export async function loadAll(): Promise<PersistedState | null> {
     return {
       patterns,
       profiles,
-      results: results.sort((a, b) => (a.sheet.createdAt < b.sheet.createdAt ? 1 : -1)),
-      settings: settings ?? { displayUnit: 'in', patternUnit: 'in', activeProfileId: null },
+      results: results.sort((a, b) => String(b.sheet?.createdAt ?? '').localeCompare(String(a.sheet?.createdAt ?? ''))),
+      settings: settings ?? { displayUnit: 'in', patternUnit: 'in', activeProfileId: null, profileVault: null },
+      profileVault: settings?.profileVault ?? null,
+      settingsPresent: settings !== undefined,
+      revision: settings?.revision ?? 0,
     }
   } catch {
     return null // private mode / blocked → localStorage-only fallback
@@ -78,19 +94,24 @@ export async function loadAll(): Promise<PersistedState | null> {
 }
 
 /** Persist a full state snapshot (small data volumes; simple + idempotent). */
-export async function saveAll(state: PersistedState): Promise<void> {
+export interface StorageResult { ok: boolean; error?: string }
+
+export async function saveAll(state: PersistedState): Promise<StorageResult> {
   try {
     const d = getDb()
     await d.transaction('rw', d.patterns, d.profiles, d.results, d.settings, async () => {
       await d.patterns.clear()
       await d.patterns.bulkPut(state.patterns)
       await d.profiles.clear()
-      await d.profiles.bulkPut(state.profiles)
+      // Opt-in vault mode persists ciphertext only. The default mode keeps
+      // the existing local-first plaintext profile behavior.
+      if (!state.profileVault) await d.profiles.bulkPut(state.profiles)
       await d.results.clear()
       await d.results.bulkPut(state.results)
-      await d.settings.put({ key: 'settings', ...state.settings })
+      await d.settings.put({ key: 'settings', ...state.settings, profileVault: state.profileVault ?? null, revision: state.revision ?? 0 })
     })
+    return { ok: true }
   } catch {
-    // storage unavailable → localStorage fallback already wrote
+    return { ok: false, error: 'Device storage is unavailable. Download a backup before closing; the browser cache may be the only saved copy.' }
   }
 }

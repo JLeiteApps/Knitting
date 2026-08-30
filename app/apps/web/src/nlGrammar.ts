@@ -29,7 +29,7 @@ const round2 = (x: number) => Math.round(x * 100) / 100
 const RE = {
   gaugeSignal:
     /\bgauge\b|\bswatch\b|sts\s*\/\s*in|stitches?\s*per\s*inch|different\s+(?:yarn|needle)|thinner|thicker|substitut/i,
-  sleeveSignal: /\bsleeves?\b|\barms?\b|\bbicep\b/i,
+  sleeveSignal: /\bsleeves?\b|\barms?\b/i,
   bustSignal: /\bbust\b|\bcups?\b|\bdarts?\b/i,
   bodySignal: /\blonger\b|\bshorter\b|\blength(?:en|en(ed)ing)?\b|\bcrop\b|\btunic\b|\bhem\b|\bextend\b/i,
   bodyAnchor: /\bbody\b|\bhem\b|\btunic\b|\btorso\b|\bsweater\b/i,
@@ -45,6 +45,10 @@ const RE = {
   tierOversized: /oversized|roomy\b|roomier|loose\b|baggy|slouch/i,
   bustBasis: /full[- ]bust|by bust/i,
   explicitSize: /\bsizes?\b|\bease\b/i,
+  waistShape: /\bwaist\b[\s\S]{0,80}(?:shape|shaping|move|reposition|raise|lower)/i,
+  hipWidth: /\bhip\b[\s\S]{0,80}(?:width|wider|narrower|increase|decrease|room)/i,
+  upperArmWidth: /\b(?:upper[- ]?arm|bicep)\b[\s\S]{0,80}(?:width|wider|narrower|increase|decrease|room)/i,
+  backNeckRaise: /\bback[- ]?neck\b[\s\S]{0,80}(?:raise|higher|lower|drop)/i,
 } as const
 
 function parseDelta(raw: string): { mag: number | null; explicitDir: 1 | -1 | null } {
@@ -58,6 +62,23 @@ function parseDelta(raw: string): { mag: number | null; explicitDir: 1 | -1 | nu
   if (m[1].startsWith('-')) return { mag, explicitDir: -1 }
   if (m[1].startsWith('+')) return { mag, explicitDir: 1 }
   return { mag, explicitDir: null }
+}
+
+function parseWaistLandmark(raw: string): number | null {
+  const explicit = raw.match(/(\d+(?:\.\d+)?)\s*(cm|inches?|in|"|”|″)\s+(?:from|above)\s+(?:the\s+)?hem/i)
+  if (explicit) return round2(explicit[2].toLowerCase() === 'cm' ? cmToIn(Number(explicit[1])) : Number(explicit[1]))
+  const labelled = raw.match(/\bwaist(?:\s+landmark)?[^\d]{0,24}(\d+(?:\.\d+)?)\s*(cm|inches?|in|"|”|″)/i)
+  if (labelled) return round2(labelled[2].toLowerCase() === 'cm' ? cmToIn(Number(labelled[1])) : Number(labelled[1]))
+  return null
+}
+
+function featureDelta(text: string, label: string): { deltaIn: number; reasons: string[] } {
+  const { mag, explicitDir } = parseDelta(text)
+  const dir = explicitDir ?? wordDir(text)
+  if (mag === null || dir === null) {
+    return { deltaIn: NaN, reasons: [`${label} needs an explicit increase/decrease amount and direction; no number was invented.`] }
+  }
+  return { deltaIn: dir * mag, reasons: [] }
 }
 
 function wordDir(raw: string): 1 | -1 | null {
@@ -89,7 +110,8 @@ function parseGauge(raw: string): { stsPerIn: number | null; rowsPerIn: number |
 function matchedIntents(text: string): Intent[] {
   const out: Intent[] = []
   if (RE.gaugeSignal.test(text)) out.push('gauge_conversion')
-  const sleeve = RE.sleeveSignal.test(text)
+  const upperArm = RE.upperArmWidth.test(text)
+  const sleeve = RE.sleeveSignal.test(text) && !upperArm
   const body = RE.bodySignal.test(text) && (RE.bodyAnchor.test(text) || !sleeve)
   if (sleeve) out.push('sleeve_length_change')
   if (RE.bustSignal.test(text)) out.push('bust_accommodation')
@@ -97,6 +119,10 @@ function matchedIntents(text: string): Intent[] {
   const size =
     (RE.sizeSignal.test(text) || RE.fitProblem.test(text)) && !RE.bustSignal.test(text) && !sleeve
   if (size) out.push('size_ease_selection')
+  if (RE.waistShape.test(text)) out.push('waist_shape_reposition')
+  if (RE.hipWidth.test(text)) out.push('hip_width_change')
+  if (upperArm) out.push('upper_arm_width_change')
+  if (RE.backNeckRaise.test(text)) out.push('back_neck_raise')
   return out
 }
 
@@ -268,5 +294,50 @@ function singleIntentDraft(intent: Intent, text: string): NlDraft {
         notes: ['Sizes by upper torso (Herzog §19.1) — the profile needs that measurement.'],
       }
     }
+    case 'waist_shape_reposition': {
+      const d = featureDelta(text, 'Waist shaping reposition')
+      const landmarkIn = parseWaistLandmark(text)
+      const reasons = [...d.reasons]
+      if (landmarkIn === null) reasons.push('Give the waist landmark explicitly as a distance from the hem.')
+      return {
+        intent,
+        params: { kind: 'waist_reposition', deltaIn: d.deltaIn, landmarkIn: landmarkIn ?? NaN },
+        confidence: reasons.length === 0 ? 'exact' : 'probable',
+        reasons,
+        notes: ['Plain-span geometry is required; the engine blocks unsupported or ambiguous shaping layouts.'],
+      }
+    }
+    case 'hip_width_change': {
+      const d = featureDelta(text, 'Hip width')
+      return {
+        intent,
+        params: { kind: 'hip_width', deltaIn: d.deltaIn },
+        confidence: d.reasons.length === 0 ? 'exact' : 'probable',
+        reasons: d.reasons,
+        notes: ['Hip and waist shaping events are adjusted as a pair and rechecked by Σ.'],
+      }
+    }
+    case 'upper_arm_width_change': {
+      const d = featureDelta(text, 'Upper-arm width')
+      return {
+        intent,
+        params: { kind: 'upper_arm_width', deltaIn: d.deltaIn },
+        confidence: d.reasons.length === 0 ? 'exact' : 'probable',
+        reasons: d.reasons,
+        notes: ['Only construction families with validated sleeve/armhole coupling can run this change.'],
+      }
+    }
+    case 'back_neck_raise': {
+      const d = featureDelta(text, 'Back-neck raise')
+      return {
+        intent,
+        params: { kind: 'back_neck_raise', deltaIn: d.deltaIn },
+        confidence: d.reasons.length === 0 ? 'exact' : 'probable',
+        reasons: d.reasons,
+        notes: ['Complete stitch-position short-row geometry is required before this can run.'],
+      }
+    }
+    default:
+      throw new Error('unsupported intent in deterministic grammar')
   }
 }

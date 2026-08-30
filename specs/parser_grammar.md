@@ -22,7 +22,9 @@ PDF ─▶ [1] extract ─▶ [2] segment ─▶ [3] LLM extract ─▶ [4] norm
    sizing → schematic captions → yarn/needles/notions → gauge → instructions (per piece/section)
    → finishing. Headers matched by keyword lists (`SIZES`, `TO FIT`, `GAUGE`, `NEEDLES`,
    `FINISHING`, `ABBREVIATIONS`…). Segments carry page numbers for provenance.
-3. **LLM extract** — per segment, one structured call (contract §3).
+3. **Optional LLM extract** — only after the user presses the assist button. A
+   stored key does not send source text automatically. Changing source invalidates
+   prior outcomes and ignores stale responses (contract §3).
 4. **Normalize** — deterministic: gauge → sts/rows per inch; cm → inches (2.54); fractions
    ("½") → floats; size arrays aligned to `sizeCount`; stitch-checkpoint rows captured as
    `sts_note` events. No rounding beyond float conversion.
@@ -46,7 +48,8 @@ Applied by regex/tokenizer before any model call — these rules are reliable en
   `½ ¼ ¾ ⅜…` and `7½` → floats.
 - **Gauge statements**: `20 sts & 28 rows = 4" (10 cm) in St st` → gauge block; sts/4" most
   common, sts/in (Budd) and sts/10cm normalized to per-inch floats. First gauge listed =
-  primary. Missing row gauge → `rowsPerIn: null` + estimation flag (§17.2 step 6).
+  primary. Missing row gauge → `rowsPerIn: null`; request it or keep row-derived output
+  advisory (§17.2 step 6), never estimate from stitch gauge.
 - **To-fit vs finished (A3)**: detect from phrasing — `to fit bust/chest/head…` = to_fit;
   `finished chest/bust/circumference…` = finished; ambiguous → `unknown` (engine asks user).
 
@@ -58,7 +61,9 @@ One call per segment. System rules (temperature 0, JSON-only output):
    gauge-block schema, section schema…).
 2. Every extracted number carries `evidence`: a VERBATIM substring from the input segment.
    Post-check in code: evidence must actually occur in the segment, else the field is dropped
-   to null and confidence 0 (anti-hallucination gate).
+   rather than entering app state. Numeric fields must also match their own
+   count/span token and canonical unit; finding an unrelated number in a quote
+   is insufficient. Fraction parsing is deterministic.
 3. Copy counts exactly — never sum, average, convert, or "fix" numbers. Derived values
    (stsPerIn, totals) are computed downstream deterministically.
 4. Unknown/absent → `null` with `confidence: 0`. Never invent sizes, gauges, or repeats.
@@ -119,3 +124,16 @@ measures 13 (13, 14)". Output fragment:
 For each golden pattern (TCK Flax & co.): hand-verified sizes list, gauge line, construction
 type, section order, key checkpoints; parser output must match exactly or surface differences
 as review items with correct evidence. Σ checks must pass on the hand-corrected version.
+
+## 6. Current implementation boundary (2026-08-30)
+The broad pipeline above is staged; automatic instruction assembly is incomplete.
+The current optional LLM UI requests sizing and gauge fields, not every target in
+the broader table. Real Flax extraction succeeds in the browser but retains
+unresolved section/schedule data as a draft. Hand-derived golden IR is separate.
+
+`buildPatternDraft` is shared outside React. Unknown construction/working method
+is explicit and gates acceptance. Review supports sizing, gauge, basis and
+construction corrections; it is not yet a general section/checkpoint editor.
+Saved drafts reopen from their existing IR without discarding sections when source
+text is missing. Replacing source resets source-bound corrections and LLM fields.
+No OCR is started by the import flow; scans require separate explicit authorization.

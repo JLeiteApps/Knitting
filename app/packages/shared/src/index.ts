@@ -18,6 +18,11 @@ export interface FitProfile {
   /** Belly variant §19.3: front vs back side-seam-to-side-seam at mid-hip. */
   frontMidHipIn?: number;
   backMidHipIn?: number;
+  /** Optional short-row placement measurements. These are required before a
+   * short-row event can be emitted as verified. */
+  apexToApexIn?: number;
+  shortRowStartIn?: number;
+  shortRowFinishBeforeArmholeIn?: number;
   /** Display preference only; engine works in inches. */
   displayUnit: 'in' | 'cm';
 }
@@ -32,7 +37,11 @@ export type Intent =
   | 'bust_accommodation'
   | 'body_length_change'
   | 'sleeve_length_change'
-  | 'gauge_conversion';
+  | 'gauge_conversion'
+  | 'waist_shape_reposition'
+  | 'hip_width_change'
+  | 'upper_arm_width_change'
+  | 'back_neck_raise';
 
 export type BustMethod = 'auto' | 'vertical_darts' | 'short_rows';
 
@@ -47,7 +56,11 @@ export interface ModificationRequest {
     | { kind: 'bust'; method?: BustMethod; tightness?: Tightness }
     | { kind: 'body_length'; deltaIn: number }
     | { kind: 'sleeve_length'; deltaIn: number }
-    | { kind: 'gauge'; userStsPerIn: number; userRowsPerIn?: number };
+    | { kind: 'gauge'; userStsPerIn: number; userRowsPerIn?: number }
+    | { kind: 'waist_reposition'; deltaIn: number; landmarkIn: number }
+    | { kind: 'hip_width'; deltaIn: number }
+    | { kind: 'upper_arm_width'; deltaIn: number }
+    | { kind: 'back_neck_raise'; deltaIn: number };
 }
 
 // ── Modification sheet (D1: diff-style, references the user's own pattern) ──
@@ -97,6 +110,10 @@ export interface ValidationReport {
   sumChecks: SumCheck[];
   /** Gate: true only when every check passes (drift < 0.25"/dimension, all Σ exact). */
   pass: boolean;
+  /** Truthful evidence state. `pass` is retained for older saved sheets; UI
+   * must use this field so empty/advisory checks cannot look verified. */
+  status: 'verified' | 'advisory' | 'blocked';
+  reasons: string[];
 }
 
 export interface ModificationResult {

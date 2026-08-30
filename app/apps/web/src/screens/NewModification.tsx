@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { applyIntent } from '@knitting/engine'
+import { applyIntent, capabilityFor } from '@knitting/engine'
 import { fmtLen, fromCanonicalInches, toCanonicalInches } from '../units'
 import type { FitProfile, Intent, ModificationRequest } from '@knitting/shared'
 import { INTENT_BACKING, INTENT_LABELS, INTENT_ORDER, missingSlots } from '../intents'
@@ -21,6 +21,16 @@ function defaultParams(intent: Intent): ModificationRequest['params'] {
       return { kind: 'sleeve_length', deltaIn: 2 }
     case 'gauge_conversion':
       return { kind: 'gauge', userStsPerIn: 5 }
+    case 'waist_shape_reposition':
+      return { kind: 'waist_reposition', deltaIn: NaN, landmarkIn: NaN }
+    case 'hip_width_change':
+      return { kind: 'hip_width', deltaIn: NaN }
+    case 'upper_arm_width_change':
+      return { kind: 'upper_arm_width', deltaIn: NaN }
+    case 'back_neck_raise':
+      return { kind: 'back_neck_raise', deltaIn: NaN }
+    default:
+      throw new Error('unsupported intent')
   }
 }
 
@@ -58,6 +68,7 @@ export default function NewModification({
   const profile = store.profiles.find((p) => p.id === profileId)
   const missing = missingSlots(intent, params, profile)
   const backing = INTENT_BACKING[intent]
+  const capability = capabilityFor(intent, pattern.construction.type)
 
   /** Deterministic first — no LLM involved unless the user accepts the offer. */
   const draft = () => {
@@ -137,7 +148,7 @@ export default function NewModification({
         raw,
         params,
       }
-      const { sheet, validation } = applyIntent(pattern, request, profile ?? NO_PROFILE, {
+      const { sheet, validation, modified } = applyIntent(pattern, request, profile ?? NO_PROFILE, {
         unit: store.displayUnit,
       })
       store.actions.addResult({
@@ -147,6 +158,8 @@ export default function NewModification({
         raw,
         sheet,
         validation,
+        request,
+        modifiedPattern: modified,
       })
       go({ name: 'sheet', resultId: id })
     } catch (e) {
@@ -324,6 +337,31 @@ export default function NewModification({
                 />
               </label>
             )}
+            {(params.kind === 'waist_reposition' || params.kind === 'hip_width' || params.kind === 'upper_arm_width' || params.kind === 'back_neck_raise') && (
+              <label className="field">
+                <span>
+                  Change ({store.displayUnit === 'cm' ? 'cm' : 'inches'}; negative narrows/lowers)
+                </span>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={Number.isFinite(params.deltaIn) ? fromCanonicalInches(params.deltaIn, store.displayUnit) : ''}
+                  onChange={(e) => setParams({ ...params, deltaIn: e.target.value === '' ? NaN : toCanonicalInches(Number(e.target.value), store.displayUnit) } as typeof params)}
+                />
+              </label>
+            )}
+            {params.kind === 'waist_reposition' && (
+              <label className="field">
+                <span>Waist landmark from hem ({store.displayUnit === 'cm' ? 'cm' : 'inches'})</span>
+                <input
+                  type="number"
+                  min="0.1"
+                  step="0.5"
+                  value={Number.isFinite(params.landmarkIn) ? fromCanonicalInches(params.landmarkIn, store.displayUnit) : ''}
+                  onChange={(e) => setParams({ ...params, landmarkIn: e.target.value === '' ? NaN : toCanonicalInches(Number(e.target.value), store.displayUnit) })}
+                />
+              </label>
+            )}
             {params.kind === 'gauge' && (
               <>
                 <label className="field">
@@ -401,6 +439,10 @@ export default function NewModification({
               Σ-verified before the sheet renders.
             </div>
           )}
+          <div className={`panel ${capability.status === 'implemented' ? 'info' : capability.status === 'advisory' ? 'warn' : 'err'} small`}>
+            Capability: <strong>{capability.status}</strong> for <code>{pattern.construction.type}</code>.
+            Required: {capability.requiredMeasurements.join('; ') || 'none listed'}.
+          </div>
           {error && <div className="panel err">{error}</div>}
           <div className="row">
             <button className="primary" disabled={missing.length > 0} onClick={confirm}>

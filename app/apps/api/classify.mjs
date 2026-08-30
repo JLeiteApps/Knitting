@@ -16,9 +16,13 @@ Supported intents (choose exactly one):
 - "body_length_change": make the sweater BODY longer or shorter (tunic, crop).
 - "sleeve_length_change": make the SLEEVES longer or shorter (length only, not width).
 - "gauge_conversion": knit the pattern at a different gauge than written (yarn/needle substitution, "my swatch is ...").
+- "waist_shape_reposition": move existing waist shaping to an explicitly stated hem landmark.
+- "hip_width_change": widen or narrow an existing hip shaping span while preserving the upper body.
+- "upper_arm_width_change": change upper-arm width only when the summary shows a supported coupled sleeve construction.
+- "back_neck_raise": raise the back neck when the request states the required placement information.
 Rules:
 1. Output ONLY JSON: {"intent": string, "params": object, "missingSlots": string[], "clarifyingQuestion": string | null}.
-2. "intent" MUST be one of the five above, or "unsupported" when the request is outside all of them (e.g. neckline changes, converting to a cardigan).
+2. "intent" MUST be one of the nine above, or "unsupported" when the request is outside all of them (e.g. neckline changes, converting to a cardigan).
 3. Copy numbers EXACTLY as the user stated them. NEVER convert units, NEVER compute, NEVER invent stitch counts, row counts, or schedules — the app's engine does all math.
 4. Sign convention: longer/more/looser → positive delta; shorter/less/tighter → negative.
 5. "params" by intent (omit anything the user did not state):
@@ -26,6 +30,8 @@ Rules:
    - bust_accommodation: {"method": "auto" | "vertical_darts" | "short_rows", "tightness": "tight" | "average" | "loose"}
    - body_length_change and sleeve_length_change: {"delta": number, "unit": "in" | "cm"} — omit "delta" when the user gave no amount.
    - gauge_conversion: {"stsPerIn": number} or {"stsOver": number, "spanValue": number, "spanUnit": "in" | "cm"} (use the over/span form for "22 sts over 4 inches"); optionally add {"rowsPerIn": number} when a row gauge was stated.
+   - waist_shape_reposition: {"delta": number, "unit": "in" | "cm", "landmark": number, "landmarkUnit": "in" | "cm"}; omit either value when it was not stated.
+   - hip_width_change, upper_arm_width_change, back_neck_raise: {"delta": number, "unit": "in" | "cm"}; omit "delta" when it was not stated.
    - unsupported: {}
 6. "missingSlots": short strings naming what the request still needs before it can run (e.g. "how many inches longer", "swatch gauge in stitches per inch"). Empty array when the request is complete.
 7. "clarifyingQuestion": ONE question when the intent is ambiguous (e.g. "bigger" → overall circumference vs bust/cup volume) or unsupported; otherwise null.

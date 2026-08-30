@@ -64,6 +64,14 @@ describe('validatePattern (spec §5 contract)', () => {
     expect(diags.some((d) => d.code === 'SUM_CHECK_FAILED' && d.level === 'error')).toBe(true);
   });
 
+  it('allows a fully closed section to end at zero stitches', () => {
+    const p = oneSizePattern({ endSts: [0], eventTimes: [86] });
+    p.sections[0]!.length!.rows = [688];
+    const diags = validatePattern(p);
+    expect(diags.some((d) => d.code === 'NON_FINITE_NUMBER' && d.path.includes('endsAt'))).toBe(false);
+    expect(diags.some((d) => d.level === 'error')).toBe(false);
+  });
+
   it('flags per-size array length mismatch', () => {
     const p = oneSizePattern({});
     p.sections[0]!.startsWith.sts = [172, 190]; // 2 entries, sizeCount = 1

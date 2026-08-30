@@ -9,7 +9,7 @@ import SheetScreen from './screens/SheetScreen'
 
 export type Route =
   | { name: 'library' }
-  | { name: 'add' }
+  | { name: 'add'; patternName?: string }
   | { name: 'profile' }
   | { name: 'newmod'; patternId: string }
   | { name: 'sheet'; resultId: string }
@@ -71,6 +71,20 @@ export default function App() {
 
   const props: ScreenProps = { store, go }
 
+  if (!store.ready) {
+    return (
+      <div className="app">
+        <main ref={mainRef} tabIndex={-1}>
+          <section className="card">
+            <h1>Knit Adapt</h1>
+            <p className="muted">Loading your local library…</p>
+          </section>
+        </main>
+        <ToastHost />
+      </div>
+    )
+  }
+
   return (
     <div className="app">
       <header className="app-header no-print">
@@ -120,8 +134,10 @@ export default function App() {
       </header>
 
       <main ref={mainRef} tabIndex={-1}>
+        {store.storageError && <div className="panel err no-print" role="alert">{store.storageError}</div>}
+        {store.saving && <p className="muted small no-print" role="status">Saving on this device… Keep this page open until saving finishes.</p>}
         {route.name === 'library' && <Library {...props} />}
-        {route.name === 'add' && <AddPattern {...props} />}
+        {route.name === 'add' && <AddPattern key={route.patternName ?? 'new'} {...props} patternName={route.patternName} />}
         {route.name === 'profile' && <FitProfile {...props} />}
         {route.name === 'newmod' && <NewModification {...props} patternId={route.patternId} />}
         {route.name === 'sheet' && (
@@ -131,8 +147,8 @@ export default function App() {
 
       <footer className="app-footer no-print">
         <p>
-          Local-first: patterns, profiles and sheets stay on this device. Sheets render only after
-          every Σ-check and schematic recompute pass (drift &lt; 0.25&Prime;).
+          Local-first: patterns, profiles and sheets stay on this device. Only verified sheets
+          show instructions. Advisory and blocked sheets explain missing evidence or failed checks.
         </p>
       </footer>
 

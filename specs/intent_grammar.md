@@ -3,7 +3,9 @@
 > Phase 4 deliverable 3 of 5. Natural-language request → machine-readable `ModificationRequest`
 > the engine executes. Grounded in KB §11 (intent table), §19 (Herzog fit), §17 (policies),
 > §16.2 (sleeve re-rate). The LLM classifies intent + fills slots; **the engine computes**.
-> MVP = 5 intents; the full §11 table maps in post-MVP (§4 below).
+> The original MVP contains 5 intents. The executable enum now also contains four
+> explicitly gated extension intents; capability status is recorded in the engine
+> matrix and unsupported geometry remains blocked.
 
 ## 1. Request schema
 
@@ -14,6 +16,10 @@ type Intent =
   | 'body_length_change'       // MVP 3
   | 'sleeve_length_change'     // MVP 4
   | 'gauge_conversion';        // MVP 5
+  | 'waist_shape_reposition';
+  | 'hip_width_change';
+  | 'upper_arm_width_change';
+  | 'back_neck_raise';
 
 interface ModificationRequest {
   intent: Intent;
@@ -22,11 +28,19 @@ interface ModificationRequest {
   sizeIndex?: number;
   /** Profile supplying body measurements (spec: shared/fit-profile). */
   profileId?: string;
-  params: SizeEaseParams | BustParams | BodyLengthParams | SleeveLengthParams | GaugeParams;
+  params: SizeEaseParams | BustParams | BodyLengthParams | SleeveLengthParams | GaugeParams |
+    WaistRepositionParams | HipWidthParams | UpperArmWidthParams | BackNeckRaiseParams;
   /** Free-text original request, kept for the confirmation card. */
   raw: string;
 }
 ```
+
+Extension parameters are deliberately explicit: waist reposition requires both
+`deltaIn` and a hem-to-waist landmark; hip width requires a requested width
+checkpoint; upper-arm width requires a validated sleeve/armhole coupling; and
+back-neck raise requires stitch-position short-row geometry. The current engine
+blocks each route when those contracts are absent, rather than emitting a
+Σ-balanced but physically unverified sheet.
 
 ## 2. MVP intent parameter schemas → engine functions
 
@@ -96,10 +110,28 @@ erratum; the engine tests enforce it.]
 | gauge_conversion | user sts/in (rows optional) | "What's your swatch gauge?" |
 
 Cup-size phrasing ("make this bigger for a D cup") WITHOUT measurements → offer the measurement
-path first [Herzog]; if the user has only a bra size, fall back to the [conv] 1"-per-cup
-estimate, clearly labeled unverified (KB §10.1 legacy note).
+path first [Herzog]. A bra size alone is not converted into body inches: generic cup/band
+equivalence is unsupported and the request stays blocked until the required measurements are
+provided (KB §10.1 legacy note is retained as historical context only).
 
-## 4. Post-MVP intent map (KB §11 full table)
+## 4. Bounded extension intents and capability status
+
+`waist_shape_reposition`, `hip_width_change`, `upper_arm_width_change`, and
+`back_neck_raise` are now deterministic grammar intents with editable cards and
+code-side gates. Their construction × measurement × provenance × validator
+matrix is exported as `CAPABILITY_MATRIX` from `@knitting/engine`.
+
+- `waist_shape_reposition`: **blocked** pending explicit plain spans before and
+  after the hem-to-waist landmark.
+- `hip_width_change`: **blocked** pending a requested hip-width checkpoint and
+  repeat-aware span representation; repeated events cannot each receive the
+  full requested delta.
+- `upper_arm_width_change`: **blocked** pending armhole and sleeve coupling
+  geometry; a construction label alone is insufficient.
+- `back_neck_raise`: **blocked** pending complete stitch-position short-row
+  turn points; inch placement fields are not stitch positions.
+
+## 5. Remaining intent map (KB §11 full table)
 
 `wider_frame_bust` (grade size at bust only) · `bigger_hip` · `bigger_upper_arm` ·
 `waist_shape_reposition` · `back_neck_raise` (short rows) · `neckline_enlarge` ·
@@ -107,7 +139,7 @@ estimate, clearly labeled unverified (KB §10.1 legacy note).
 (cut & reknit) · `pullover_to_cardigan` (steek route, §17.1 warnings) · `in_round_to_flat`
 & `flat_to_in_round` (§17.1) · `yarn_substitution` (§13.2) · `ease_change` (re-run 2.1).
 
-## 5. LLM contract (classifier) — IMPLEMENTED 2026-08-28
+## 6. LLM contract (classifier) — IMPLEMENTED 2026-08-28
 
 Input: raw text + pattern summary (construction type, sections, sizeCount). Output JSON:
 `{ intent, params, missingSlots[], clarifyingQuestion? }`. Temperature 0; intent outside the
@@ -121,7 +153,7 @@ over-span→per-inch conversions happen in code, and invalid/absent numbers beco
 deterministic slot gate asks instead of silently entering state (absent-not-trusted rule).
 Schedules/counts stay OUT of the prompt (summary sanitizer).
 
-### 5a. Deterministic implementation — DEFAULT PATH (2026-08-28, later)
+### 6a. Deterministic implementation — DEFAULT PATH (2026-08-28, later)
 
 `classifyDeterministic` (`app/apps/web/src/nlGrammar.ts`) implements this contract as pure
 code — the LLM is now an OPTIONAL enhancer, never the default:
@@ -132,10 +164,11 @@ code — the LLM is now an OPTIONAL enhancer, never the default:
 - **The UI asks, never guesses silently**: non-exact drafts render the best-guess card plus
   the reasons and a "Let the LLM try" offer (BYOK key, per request); "Keep this draft"
   declines. Unit math (cm→in, over-N-sts→per-inch) happens in the grammar, in code.
-- 15 unit tests (`nlGrammar.test.ts`) pin exact/probable/unclear routing; browser-verified
+- 15 unit tests (`nlGrammar.test.ts`) pin exact/probable/unclear routing; extension
+  intents require explicit amounts/directions and never receive numeric defaults; browser-verified
   end-to-end: deterministic draft → engine → validated sheet with no LLM anywhere.
 
-## 6. Confirmation card ("show the math")
+## 7. Confirmation card ("show the math")
 
 For every request before execution: parameters resolved (with profile source), the engine
 functions that will run, the KB sections backing them (§ refs), and any warnings (unverified

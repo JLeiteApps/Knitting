@@ -37,3 +37,15 @@ The fixture's body `length.rows` (120/122/124) are not gauge-exact against its
 `length.in` (17.5/17.75/18 × 7 rows/in would be 123/124/126). The engine is
 inch-authoritative (KB §17.2 work-to-length): `in` drives recomputation, and
 `rows` is derived on modification. Pinned expectations follow that rule.
+
+## Parser and capability caveats
+
+The real Flax acceptance fixture is a hand-reviewed IR subset. Browser PDF
+extraction now runs in the bundled worker and saves an editable partial draft,
+but the instruction parser still reports unresolved sections/checkpoints for
+the full PDF; the golden fixtures do not claim complete automatic parsing.
+The four extension requests (waist, hip, upper-arm, and back-neck) have bounded
+forms and explicit capability entries, but remain blocked until their required
+geometry is represented. Generic bra-size conversion is not a golden capability
+and remains blocked without measurements. Android/Capacitor is outside this
+batch.

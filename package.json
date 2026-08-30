@@ -16,6 +16,9 @@
     "build:web": "npm run build --workspace @knitting/web"
   },
   "devDependencies": {
+    "@types/react-test-renderer": "^19.1.0",
+    "fake-indexeddb": "^6.2.5",
+    "react-test-renderer": "^19.2.8",
     "typescript": "^5.6.0",
     "vitest": "^4.1.11"
   },

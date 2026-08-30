@@ -1,7 +1,7 @@
 # SPEC — Engine Functions (v0.1)
 
 > Phase 4 deliverable 4 of 5. Codifies the IMPLEMENTED engine (`app/packages/engine`;
-> suite 180/180 across the monorepo as of 2026-08-30) so spec and code stay one
+> current suite count in app/apps/web/README.md) so spec and code stay one
 > artifact. KB refs are the grounding; the golden cases in `tests/golden/**` are
 > the acceptance contracts.
 
@@ -47,7 +47,8 @@ generation — never string post-processing.
 
 ## 5. Intent applier (`apply.ts`) — intent_grammar §2
 `applyIntent(pattern, request, profile, {unit?})` → `{sheet, validation, modified}`.
-Unit defaults to `profile.displayUnit`. All human strings generated via `fmtLen`.
+Unit defaults to `profile.displayUnit`. Lengths are formatted at generation time. Equations using per-inch gauges
+keep their operands in canonical inches, even with cm display selected.
 
 | Intent | Route | Family behavior |
 |---|---|---|
@@ -69,7 +70,10 @@ their index only (`perSize`); never replicate one size's schedule to others.
 Runs on the MODIFIED pattern at the requested size: schematic recompute
 (`width_at_chest` = startsWith/gauge; tube pieces halved for back/front dims) with
 drift < 0.25″ per dimension, and per-section Σ (`start + Σevents = end`, both-sides
-event deltas). `pass` = every check green; the UI withholds steps on failure.
+event deltas). `status` is verified/advisory/blocked; `pass` is true only for verified output.
+At least one dimension and one Σ check are required; structural warnings, missing
+requested-target evidence and incomplete short-row placement prevent certification.
+The UI withholds steps for advisory and blocked results.
 Full multi-size Σ + schedule-span checks live in `validatePattern` (schema) — the
 two-tier discipline: gate blocks the sheet; schema validation reports the IR.
 
@@ -77,3 +81,16 @@ two-tier discipline: gate blocks the sheet; schema validation reports the IR.
 - Grading (new sizes) blocked on A4/G2 (grade-by-chart is the policy).
 - Gauge-conversion parity blocks (§5 note) are honest diagnostics, not bugs.
 - C10 ease-length rule magnitude (Herzog ⅔ implemented, Shroyer ½ pending decision).
+
+## 8. Reliability and capability boundaries (2026-08-30)
+- `applyIntent` validates the source IR, size index, intent/kind agreement and numeric
+  request domains before computation. The modified IR is checked at runtime too.
+- Size selection respects upper-torso versus full-bust basis and requires explicit
+  finished measurements; a to-fit chart is not a finished-garment chart.
+- Body changes require a declared starting length at the requested size. Missing
+  row gauge or short-row turn geometry is never replaced by an invented default.
+- Gauge drift compares the original row gauge with the user's gauge at the selected
+  size. Converted schedules are re-spaced if repeat rounding would exceed their span.
+- `capability.ts` documents required measurements, provenance and implemented checks.
+  Waist reposition, hip width, upper-arm width and back-neck raise remain blocked;
+  a construction label or cancelling Σ events cannot prove their geometry.

@@ -5,4 +5,5 @@ export * from './ease.js';
 export * from './data/cyc.js';
 export * from './units.js';
 export * from './apply.js';
+export * from './capability.js';
 export { flaxLike } from './fixtures/flaxLike.js';

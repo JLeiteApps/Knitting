@@ -40,6 +40,37 @@ describe('evidence gate (parser spec §3 rule 2)', () => {
     );
     expect(r.kept).toHaveLength(1);
   });
+
+  it('keeps Unicode fractional gauge counts as their exact numeric value', () => {
+    const text = 'Gauge: 18½ sts and 24 rows over 4 inches.';
+    expect(enforceEvidence([
+      { path: 'gauge.sts', value: 18.5, confidence: 'high', evidence: text },
+    ], text).kept).toHaveLength(1);
+    expect(enforceEvidence([
+      { path: 'gauge.sts', value: 18, confidence: 'high', evidence: text },
+    ], text).kept).toHaveLength(0);
+  });
+
+  it('binds the gauge span to its over/equal unit phrase', () => {
+    const text = 'Gauge: 18 sts and 24 rows over 4 inches.';
+    expect(enforceEvidence([
+      { path: 'gauge.over_in', value: 4, confidence: 'high', evidence: text },
+    ], text).kept).toHaveLength(1);
+    expect(enforceEvidence([
+      { path: 'gauge.over_in', value: 18, confidence: 'high', evidence: text },
+    ], text).kept).toHaveLength(0);
+  });
+
+  it('does not treat centimetre evidence as canonical inches', () => {
+    const gaugeText = 'Gauge: 18 sts over 10 cm.';
+    expect(enforceEvidence([
+      { path: 'gauge.over_in', value: 10, confidence: 'high', evidence: gaugeText },
+    ], gaugeText).kept).toHaveLength(0);
+    const sizeText = 'Finished bust 40 cm.';
+    expect(enforceEvidence([
+      { path: 'sizes.finished_bust_in', value: [40], confidence: 'high', evidence: sizeText },
+    ], sizeText).kept).toHaveLength(0);
+  });
 });
 
 describe('prompt builder', () => {

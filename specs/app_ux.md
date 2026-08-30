@@ -19,14 +19,18 @@
    LLM-assisted fields) → "Pattern units" dropdown (in/cm — DECLARED, never
    detected) → pdf.js **confined-worker** text extraction (20 MB / 60-page
    caps; scanned pages flagged) → notation layer (gauge incl. metric
-   spans, sizes, basis) → LLM extract via `/api` with the verbatim-evidence gate
+   spans, sizes, basis) → explicit optional LLM extract via `/api` with verbatim and field/unit evidence gates
    (kept fields + confidence chips, dropped-with-reason) → instruction layer
    (section headers, checkpoint candidates, repeats) → section builder
-   (Σ-validated sections incl. lengths) → diagnostics + Σ panel → save.
+   (possibly incomplete sections) → editable sizing/gauge/construction review →
+   diagnostics + Σ panel → save draft or accept. Library **Edit draft** preserves
+   saved sections even when the original source text is unavailable.
 3. **Fit profile** — Herzog fields with measurement guidance; "Show measurements
    in" dropdown; bidirectional values (typed cm → canonical inches); the active
    profile's unit drives the whole UI. **Opt-in vault**: encrypt profiles at
-   rest (AES-GCM passphrase); locked banner unlocks per session.
+   rest (AES-GCM passphrase); locked banner unlocks per session. Locked profiles have no editable form.
+   Unlocked vaults remain encrypted at rest; saved edits and backups use ciphertext.
+   Profile encryption does not encrypt patterns or derived sheet content.
 4. **New modification** — size picker (bust in active unit), profile select
    (syncs unit), free-text request → **Draft** (DETERMINISTIC-FIRST since
    2026-08-28 later: the rule grammar in `nlGrammar.ts` parses the request
@@ -35,8 +39,8 @@
    "Keep this draft") → editable intent card with slot-filling gate (missing
    measurements block Run with the KB questions; clarifying questions surface
    as notes; unsupported intents get a pick-closest prompt) → engine call.
-5. **Sheet** — validation gate FIRST (pass renders steps; failure withholds them
-   and shows blocking diagnostics), drift table (active unit), Σ list with exact
+5. **Sheet** — validation gate FIRST (verified renders steps; advisory and blocked
+   states withhold instructions and explain incomplete evidence or failures), drift table (active unit), Σ list with exact
    equations, warnings (irreversible/unverified), per-step math + KB refs,
    print stylesheet with a standalone print header; the single save action is
    **Print / Save as PDF** (browser print dialog covers both). No per-sheet
@@ -45,7 +49,9 @@
 
 ## Units UX (policy A2)
 One header toggle (Inches/cm) mirrors and persists the active profile's choice;
-every number the user sees is born in that unit (engine-side `fmtLen`).
+lengths use the selected display unit (engine-side `fmtLen`). Gauge rates remain
+per inch; equations that multiply by those rates use canonical inches explicitly
+so a cm value is never multiplied by an inch-based rate.
 
 ## Offline/PWA (M5)
 Installable (manifest + 192/512 icons); app-shell service worker
@@ -53,20 +59,23 @@ Installable (manifest + 192/512 icons); app-shell service worker
 intercepted); Dexie durable storage with private-mode fallback.
 
 ## Backup & restore (Library "Your data" card)
-Local-first means browser storage is the only home for the user's data — the
-versioned backup file (`knit-adapt-backup-YYYY-MM-DD.json`, app tag + version)
-is the device-migration and clear-data insurance. Download exports everything
-(patterns, profiles, sheets, settings); Restore merges it back (patterns keyed
-by name, profiles/sheets by id — existing items win, duplicates skipped; the
-backup's unit settings come along). Parse is strict (`backup.ts parseBackup`:
-wrong app/version/shape → rejected with a toast); merge semantics are unit-
-tested (`backup.test.ts`).
+Backups carry patterns, sheets and settings plus plaintext profiles in v1 or an
+encrypted vault in v2. An unlocked vault is resealed from the latest saved profile
+state before export; decrypted profiles are never included in a v2 backup.
+Restore validates nested data, merges identities and rejects incompatible vaults
+or conflicting records without replacing existing data. Identical records are
+skipped. Different encrypted envelopes are not merged automatically.
+
+History is not silently capped at fifty sheets. Reloaded/restored results are
+advisory until rerun, while failed results remain blocked. The import parser has a
+12 MiB character cap; exporting very large libraries needs future chunking UX.
+Before clearing browser data, download a backup and retain the vault passphrase.
 
 ## Interaction conventions (2026-08-28 polish pass)
 - **Destructive actions are two-tap** (`ConfirmButton`): Delete arms to
   "Confirm?" and reverts after ~3s; one accidental tap can never destroy a
   pattern or profile. Sheets (regenerable) use the same component.
-- **Feedback is transient, never blocking**: save/delete/export confirmations
+- **Routine feedback is transient**: save/delete/export confirmations
   render as bottom-center toasts in an `aria-live="polite"` region
   (`toast.tsx`); silent-success is avoided.
 - **Navigation uses real history entries** (`pushState` + `popstate`): the
@@ -87,7 +96,17 @@ tested (`backup.test.ts`).
 - Intent drafting is deterministic by default (2026-08-28 later, `nlGrammar.ts`)
   and browser-verified; the OPTIONAL LLM pass (`/api/classify`, BYOK key) is
   still only agent-smoke-tested — the live-key end-to-end run needs a human.
-- Gauge entry is sts/inch only (sts/10cm input is a post-MVP nicety; the parser
-  already normalizes cm-stated gauges at import).
+- Modification-request gauge entry is still sts/inch. Import review accepts
+  counts over an explicit inch or cm span; partial/invalid corrections block
+  saving with a visible error instead of silently retaining the prior value.
 - Mixed-unit patterns against the declared dropdown show up as review values
   with evidence; re-import with the other declaration.
+
+## Reliability follow-ups
+- Saving state and storage failures are visible in the app shell; keep the page
+  open until saving finishes and export a backup if storage fails.
+- Unsaved profile/request/import form navigation preservation remains unfinished;
+  save a profile or pattern draft before leaving its screen. Locking clears the
+  profile editor; saved ciphertext remains available for session unlock.
+- Four extension forms disclose blocked capabilities; they do not imply supported
+  geometry. Android/Capacitor is excluded from the current batch.

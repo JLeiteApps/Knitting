@@ -3,13 +3,13 @@
 > The approved build plan for the web app → Android/iOS product. Decisions locked with the user:
 > **Web PWA + Capacitor** (one codebase) · **Secretless BYOK relay** (user key per-request,
 > never stored server-side — shipped 2026-08-27; see web README security posture)
-> · **MVP = focused vertical slice** (2 construction families, 5 intents, full pipeline).
+> · **MVP = focused vertical slice** (five original intents; three golden construction families now covered).
 
 ## 1. Repository layout (knowledge folders untouched)
 ```
 app/                     ← all product code
   apps/web/              Vite + React + TS PWA (UI only, no domain math)
-  apps/api/              serverless functions: /parse, /intent (LLM proxy)
+  apps/api/              BYOK relay functions: /api/extract, /api/classify
   packages/schema/       Pattern JSON types + validators (spec: pattern_schema.md)
   packages/engine/       PURE TypeScript: all modification math + KB tables as data
   packages/parser/       PDF extraction + LLM prompt pipeline + confidence scoring
@@ -23,14 +23,15 @@ knowledge pipeline (gitignored: copyrighted/regenerable). **Git + .gitignore** e
 ## 2. Architecture rules (non-negotiable)
 - **"LLM parses, code computes"**: `packages/engine` is pure TS — no I/O, no framework imports.
   Every schedule carries Σ-checks (`Σ(times×sts) = checkpoint delta`, `Σ(rows) = span`).
-- **Validation gate**: sheets render only after schematic recompute (drift < 0.25"/dimension)
-  and all Σ-checks pass; failures are blocking diagnostics.
+- **Validation gate**: only verified sheets expose instructions. Missing evidence is advisory;
+  failed checks are blocked. Verification requires dimension and Σ evidence
+  (drift < 0.25"/dimension); see validation_loop.md.
 - **Local-first**: patterns, profiles, sheets in IndexedDB (Dexie); JSON export/import; no
   accounts in MVP. Serverless API touches nothing but LLM calls.
 - **PDF extraction client-side** (pdf.js; proven in this repo); scanned PDFs flagged, no browser
   OCR in MVP.
 - **Mobile-ready day 1**: responsive ≥360px, ≥44px touch targets, no hover-only UI, print
-  stylesheet, Workbox offline, installable PWA.
+  stylesheet, custom service-worker offline shell, installable PWA.
 
 ## 3. Spec order (Phase 4 — COMPLETE)
 1. ✅ `pattern_schema.md` v0.1 · 2. ✅ `parser_grammar.md` v0.1 · 3. ✅ `intent_grammar.md` v0.1
@@ -47,28 +48,36 @@ dart formulas. Open A/D decisions = config defaults (A2 inches-internal, A5 two-
 D4 convert-with-drift, D1 diff-sheet).
 
 ## 5. MVP scope
-Constructions: top-down raglan, top-down yoke, flat set-in.
+Golden-covered constructions: top-down raglan, flat set-in and bottom-up yoke.
+Construction enum membership alone does not establish modification support.
 Intents: size/ease selection · bust accommodation (Herzog) · body length · sleeve length ·
 gauge conversion (corrected formula; see KB §2 erratum).
 
 ## 6. Screens
-Library · Add pattern (parse review w/ confidence + Σ panel) · Fit profile wizard (Herzog
-protocol; favorite-garment path) · New modification (NL → intent card → show-the-math) ·
+Library · Add pattern (parse review w/ confidence + Σ panel) · Fit profile form (direct Herzog measurements;
+favorite-garment mode remains a future UX decision) · New modification (NL → intent card → show-the-math) ·
 Modification sheet (diff steps, warnings, print/export) · Validation report (drift table, Σ list).
 
-## 7. Milestones (status 2026-08-28)
-M0 ✅ workspaces+git+lint · M1 ✅ all specs · M2 ✅ schema+engine+shared+parser w/ tests ·
-M3 ✅ parser + BYOK /api relays + parse-review UI (real PDFs save complete Σ-validated IR) ·
-M4 ✅ end-to-end flows browser-smoked at 360px · M5 ✅ PWA hardening (Dexie, manifest, SW;
-2026-08-27) + ✅ security program (jailed PDF worker, secretless relays, CSP, audit gate) +
-✅ LLM intent classifier (2026-08-28) + ✅ UX/professionalism pass + backup/restore
-(2026-08-28 later: two-tap deletes, toasts, history/back-button, plain-language diagnostics,
-PDF-first sheet save, versioned backup+restore; suite 155/155) · M6 ⬜ Capacitor (Android
-first; BYOK keeps keys out of the binary).
+## 7. Milestones (2026-08-30)
+M0–M5 foundation is implemented: workspaces, contracts, engine, parser candidates,
+web screens, BYOK relays, IndexedDB, installable PWA, security gates and backups.
+The reliability batch adds encrypted-edit persistence, fresh encrypted backups,
+conflict handling, visible storage failure, truthful sheet states, strict import
+boundaries, explicit LLM opt-in, fixed browser PDF workers and editable drafts.
+
+Real Flax imports remain partial drafts; successful extraction does not establish
+complete automatic instruction parsing. Four extension request forms and a
+capability registry exist, but waist/hip/upper-arm/back-neck generation remains
+blocked pending explicit geometry. M6/Android (roadmap step 7) is explicitly
+excluded from this batch.
 
 ## 8. Testing & QA
-Unit per function; property tests (Σ, interval splits); golden acceptance = exact match +
-drift < 0.25" + all Σ pass; GUI smoke via browser tooling later.
+Use typecheck, the full Vitest suite and the production web build after edits.
+See web README for the current suite count. Golden expectations are independently
+derived, with exact Σ and <0.25-inch drift checks. Local browser review covers
+body changes, real-PDF extraction/drafts, profile units/vault reload, phone layout
+and offline deterministic use. No live paid API, OCR or performance benchmark was
+run. Unsaved-form navigation preservation and gauge-entry UX remain follow-ups.
 
 ## 9. Known-gap runtime handling
 G5 → st-level compensation + "unmeasured factor" warning · G2 → grade-by-table only (linear

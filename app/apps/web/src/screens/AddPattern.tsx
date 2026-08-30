@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
-import type { Pattern } from '@knitting/schema'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { ConstructionType, Pattern, WorkingMethod } from '@knitting/schema'
 import { validatePattern } from '@knitting/schema'
 import type { ExtractedField, LlmFieldSpec } from '@knitting/parser'
 import {
   buildSections,
+  buildPatternDraft,
   classifyCheckpointLabel,
   detectMeasurementBasis,
   extractSectionCandidates,
@@ -15,11 +16,13 @@ import {
   parseSizeList,
   segment,
   type ParsedGauge,
+  type MeasurementBasis,
   type Segment,
 } from '@knitting/parser'
 import { pdfToText } from '../pdf'
 import { callExtractViaApi, getLlmKey, setLlmKey } from '../api'
 import { cmToIn, fmtLen } from '../units'
+import { validateReviewInputs } from '../reviewInputs'
 import { toast } from '../toast'
 import type { ScreenProps } from '../App'
 
@@ -76,7 +79,7 @@ function bustFromFields(fields: ExtractedField[]): number[] | null {
   return f.value.every((v) => typeof v === 'number' && v > 10 && v < 90) ? (f.value as number[]) : null
 }
 
-export default function AddPattern({ store, go }: ScreenProps) {
+export default function AddPattern({ store, go, patternName }: ScreenProps & { patternName?: string }) {
   const [stage, setStage] = useState<Stage>('source')
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState('')
@@ -89,6 +92,57 @@ export default function AddPattern({ store, go }: ScreenProps) {
   const [llmKey, setLlmKeyState] = useState(getLlmKey())
   const [llmGauge, setLlmGauge] = useState<LlmOutcome>({ status: 'idle', kept: [], dropped: [] })
   const [error, setError] = useState('')
+  const [constructionOverride, setConstructionOverride] = useState<ConstructionType | null>(null)
+  const [methodOverride, setMethodOverride] = useState<WorkingMethod | null>(null)
+  const [directionOverride, setDirectionOverride] = useState<'top_down' | 'bottom_up' | null>(null)
+  const [llmRequested, setLlmRequested] = useState(false)
+  const [basisOverride, setBasisOverride] = useState<MeasurementBasis | null>(null)
+  const [labelsOverride, setLabelsOverride] = useState('')
+  const [bustOverride, setBustOverride] = useState('')
+  const [manualStsOver, setManualStsOver] = useState('')
+  const [manualRowsOver, setManualRowsOver] = useState('')
+  const [manualGaugeSpan, setManualGaugeSpan] = useState('')
+  const [editingPattern, setEditingPattern] = useState<Pattern | null>(null)
+  const llmRun = useRef(0)
+
+  useEffect(() => {
+    if (!patternName) return
+    const existing = store.patterns.find((p) => p.meta.name === patternName)
+    if (!existing) {
+      setError('That saved draft is no longer in the library.')
+      return
+    }
+    // Saved drafts may not retain the original source text.  Keep their IR as
+    // the editable base until the user attaches a replacement source below.
+    setEditingPattern(structuredClone(existing))
+    setText('')
+    setPaste('')
+    setPdfName(existing.meta.pdfRef ?? null)
+    setName(existing.meta.name)
+    setStage('review')
+    setError('')
+  }, [patternName, store.patterns])
+
+  useEffect(() => () => {
+    // Ignore a relay completion after the review is abandoned/unmounted.
+    llmRun.current += 1
+  }, [])
+  useEffect(() => {
+    // Corrections belong to the source they were reviewed against.
+    setLlmSizing({ status: 'idle', kept: [], dropped: [] })
+    setLlmGauge({ status: 'idle', kept: [], dropped: [] })
+    setLlmRequested(false)
+    setConstructionOverride(null)
+    setMethodOverride(null)
+    setDirectionOverride(null)
+    setBasisOverride(null)
+    setLabelsOverride('')
+    setBustOverride('')
+    setManualStsOver('')
+    setManualRowsOver('')
+    setManualGaugeSpan('')
+    llmRun.current += 1
+  }, [text])
 
   const handleFile = async (file: File) => {
     setBusy(true)
@@ -115,7 +169,7 @@ export default function AddPattern({ store, go }: ScreenProps) {
     const basis = sizingSeg ? detectMeasurementBasis(sizingSeg.text) : 'unknown'
     const sizeList = sizingSeg ? parseSizeList(sizingSeg.text) : null
     const bust = sizeList && sizeList.every((v) => v >= 20 && v <= 90) ? sizeList : null
-    const scannedPages = segments
+    const scannedPages = !text.trim() ? [] : segments
       .filter((s) => s.page !== undefined && looksScanned(s.text))
       .map((s) => s.page!)
     // Instruction layer (deterministic, parser grammar §2): section headers,
@@ -144,110 +198,133 @@ export default function AddPattern({ store, go }: ScreenProps) {
     }
   }, [text])
 
-  // LLM stage: one call per available head segment, gated by enforceEvidence.
-  useEffect(() => {
-    if (stage !== 'review') return
+  const reviewSizeCount = useMemo(() => {
+    if (editingPattern && !text.trim()) return editingPattern.sizing.sizeCount
+    const inferred = Math.max(1, ...extractSectionCandidates(text).flatMap((candidate) => [
+      candidate.startsWith?.sts.length ?? 0,
+      ...candidate.checkpoints.map((checkpoint) => checkpoint.values.length),
+    ].filter((count) => count > 1)))
+    return analysis.bust?.length ?? inferred
+  }, [analysis.bust, editingPattern, text])
+
+  const reviewInputs = useMemo(() => validateReviewInputs({
+    labels: labelsOverride,
+    bust: bustOverride,
+    stsOver: manualStsOver,
+    rowsOver: manualRowsOver,
+    span: manualGaugeSpan,
+  }, store.patternUnit, !(editingPattern && !text.trim()) && bustOverride.trim() !== '' ? null : reviewSizeCount), [labelsOverride, bustOverride, manualStsOver, manualRowsOver, manualGaugeSpan, store.patternUnit, reviewSizeCount, editingPattern, text])
+
+  // LLM extraction is an explicit user action. A remembered key never causes
+  // source text to leave the device by itself.
+  const requestLlmAssist = () => {
     const segs: Array<{ kind: 'sizing' | 'gauge'; seg: Segment; fields: LlmFieldSpec[] }> = []
     if (analysis.sizingSeg) segs.push({ kind: 'sizing', seg: analysis.sizingSeg, fields: SIZING_FIELDS })
     if (analysis.gaugeSeg) segs.push({ kind: 'gauge', seg: analysis.gaugeSeg, fields: GAUGE_FIELDS })
     if (segs.length === 0) return
-
-    let cancelled = false
+    setLlmRequested(true)
+    const runId = ++llmRun.current
     const run = async () => {
       for (const { kind, seg, fields } of segs) {
         const setLlm = kind === 'sizing' ? setLlmSizing : setLlmGauge
         setLlm({ status: 'running', kept: [], dropped: [] })
         const out = await callExtractViaApi(seg.text, kind, fields)
-        if (cancelled) return
-        if (!out.ok || !out.kept) {
-          setLlm({ status: 'error', kept: [], dropped: [], error: out.error })
-          continue
-        }
-        // kept/dropped arrive ALREADY schema-validated and evidence-gated
-        setLlm({ status: 'done', kept: out.kept, dropped: out.dropped ?? [] })
+        if (runId !== llmRun.current) return
+        if (!out.ok || !out.kept) setLlm({ status: 'error', kept: [], dropped: [], error: out.error })
+        else setLlm({ status: 'done', kept: out.kept, dropped: out.dropped ?? [] })
       }
     }
     void run()
-    return () => {
-      cancelled = true
-    }
-  }, [stage, analysis.sizingSeg, analysis.gaugeSeg])
+  }
 
   const draft: Pattern = useMemo(() => {
     const cm = store.patternUnit === 'cm'
     const conv = (v: number) => (cm ? Math.round(cmToIn(v) * 100) / 100 : v)
     const llmBust = llmSizing.status === 'done' ? bustFromFields(llmSizing.kept) : null
-    const bustRaw = llmBust ?? analysis.bust
-    const bust = bustRaw ? bustRaw.map(conv) : null
+    // API extraction is normalized to canonical inches by the client.  Only
+    // notation values still use the document unit conversion here.
+    const bust = llmBust ?? (analysis.bust ? analysis.bust.map(conv) : null)
     const llmGaugeFields = llmGauge.status === 'done' ? gaugeFromFields(llmGauge.kept) : null
-    const g = llmGaugeFields ?? analysis.parsedGauge
+    const existingMethod = editingPattern?.construction.working[0]?.method
+      ?? editingPattern?.gauge.find((gauge) => gauge.primary)?.worked
+      ?? 'unknown'
+    const g = reviewInputs.gauge ?? llmGaugeFields ?? analysis.parsedGauge
+    const reviewLabels = reviewInputs.labels
+    const reviewBust = reviewInputs.bustOrChestIn
+    const reviewNotes = [
+      ...(reviewLabels ? ['size labels corrected in review'] : []),
+      ...(reviewBust ? ['size measurements corrected in review'] : []),
+      ...(reviewInputs.gauge ? ['gauge counts/span corrected in review'] : []),
+      ...(basisOverride ? ['measurement basis corrected in review'] : []),
+    ]
     const high = [...llmSizing.kept, ...llmGauge.kept].filter((f) => f.confidence === 'high').length
     const total = [...llmSizing.kept, ...llmGauge.kept].length
-    // Deterministic section builder over the instruction text (golden-tested
-    // on the real Flax PDF): headers → candidates → sections[] IR. sizeCount
-    // from the bust list when parsed, else from the candidates' own arrays
-    // (Flax's sizing TABLE is prose rows — no multi-size list to read).
-    const cands = extractSectionCandidates(text)
-    const inferred = Math.max(
-      1,
-      ...cands.flatMap((c) =>
-        [c.startsWith?.sts.length ?? 0, ...c.checkpoints.map((cp) => cp.values.length)].filter((n) => n > 1),
-      ),
-    )
-    const sizeCount = bust?.length ?? inferred
-    const built = buildSections(cands, { sizeCount })
-    const realSections = built.sections.filter(
-      (sec) => ['yoke', 'body', 'sleeve'].includes(sec.id) && (sec.startsWith.sts.length === sizeCount),
-    )
-    const topDown = /from the top down|top[- ]down/i.test(text)
-    return {
-      schemaVersion: '0.1',
-      meta: {
-        name: name.trim() || 'Untitled pattern',
-        parseDate: new Date().toISOString().slice(0, 10),
-        ...(pdfName ? { pdfRef: pdfName } : {}),
-        ...(total > 0 ? { parserConfidence: Math.round((high / total) * 100) / 100 } : {}),
-      },
-      sizing: {
-        labels: bust?.map((_, i) => `Size ${i + 1}`) ?? ['Size 1'],
-        sizeCount: bust?.length ?? 1,
-        measurementBasis: analysis.basis,
-        bustOrChestIn: bust ?? [0],
-        notes:
-          (cm ? 'Pattern declared cm — measurements converted ÷2.54 at parse. ' : '') +
-          'Draft parse — construction and sections pending review (instruction extraction is the parser milestone).',
-      },
-      gauge:
-        g !== null
-          ? [
-              {
-                primary: true,
-                stitchPatternRef: 'stockinette',
-                worked: 'flat',
-                stsOver: g.stsOver,
-                rowsOver: g.rowsOver,
-                overIn: g.overIn,
-                stsPerIn: g.stsPerIn,
-                rowsPerIn: g.rowsPerIn,
-                ...(analysis.gaugeSeg ? { raw: analysis.gaugeSeg.text.slice(0, 120) } : {}),
-              },
-            ]
-          : [],
-      construction: realSections.length > 0
-        ? {
-            direction: topDown ? 'top_down' : 'bottom_up',
-            working: [{ scope: 'sections:body', method: 'in_the_round' }],
-            type: topDown ? 'top_down_raglan' : 'flat_drop_shoulder',
-            pieces: [...new Set(realSections.map((sec) => sec.id))],
+    const built = editingPattern && !text.trim()
+      ? (() => {
+          const preserved = structuredClone(editingPattern)
+          const notes = [...(preserved.sizing.notes ? [preserved.sizing.notes] : []), ...reviewNotes]
+          const primary = preserved.gauge.findIndex((gauge) => gauge.primary)
+          const correctedGauge = reviewInputs.gauge
+            ? (primary >= 0
+              ? preserved.gauge.map((gauge, index) => index === primary ? {
+                  ...gauge,
+                  stsOver: reviewInputs.gauge!.stsOver,
+                  rowsOver: reviewInputs.gauge!.rowsOver,
+                  overIn: reviewInputs.gauge!.overIn,
+                  stsPerIn: reviewInputs.gauge!.stsPerIn,
+                  rowsPerIn: reviewInputs.gauge!.rowsPerIn,
+                } : gauge)
+              : [{
+                  primary: true,
+                  stitchPatternRef: 'stockinette',
+                  worked: methodOverride ?? existingMethod,
+                  stsOver: reviewInputs.gauge!.stsOver,
+                  rowsOver: reviewInputs.gauge!.rowsOver,
+                  overIn: reviewInputs.gauge!.overIn,
+                  stsPerIn: reviewInputs.gauge!.stsPerIn,
+                  rowsPerIn: reviewInputs.gauge!.rowsPerIn,
+                }])
+            : preserved.gauge
+          return {
+            ...preserved,
+            meta: { ...preserved.meta, name: name.trim() || preserved.meta.name },
+            sizing: {
+              ...preserved.sizing,
+              ...(reviewLabels ? { labels: reviewLabels } : {}),
+              ...(reviewBust ? { bustOrChestIn: reviewBust } : {}),
+              ...(basisOverride ? { measurementBasis: basisOverride } : {}),
+              ...(notes.length > 0 ? { notes: notes.join(' ') } : {}),
+            },
+            gauge: correctedGauge,
           }
-        : { direction: 'bottom_up', working: [], type: 'flat_drop_shoulder', pieces: [] },
-      schematic: bust
-        ? [{ piece: 'back', dimension: 'width_at_chest', in: bust.map((b) => Math.round((b / 2) * 100) / 100), src: 'derived: bust/2 (validation gate)' }]
-        : [],
-      stitchPatterns: [],
-      sections: realSections,
+        })()
+      : buildPatternDraft({
+          text, name, pdfRef: pdfName, unit: store.patternUnit, bustOrChestIn: reviewBust ?? bust, gauge: g,
+          labels: reviewLabels ?? (llmSizing.status === 'done' ? (llmSizing.kept.find((f) => f.path === 'sizes.labels')?.value as string | undefined)?.split(',').map((x) => x.trim()) : null),
+          parserConfidence: total > 0 ? Math.round((high / total) * 100) / 100 : undefined,
+          measurementBasis: basisOverride ?? undefined,
+          reviewNotes,
+        }).pattern
+    const existingWorking = editingPattern && !text.trim() && !methodOverride
+      ? built.construction.working
+      : built.construction.working.map((w) => ({ ...w, method: methodOverride ?? w.method }))
+    return {
+      ...built,
+      construction: {
+        ...built.construction,
+        type: constructionOverride ?? built.construction.type,
+        direction: directionOverride ?? built.construction.direction,
+        working: existingWorking.length > 0
+          ? existingWorking
+          : [{ scope: 'garment', method: methodOverride ?? built.gauge[0]?.worked ?? 'unknown' }],
+      },
+      gauge: built.gauge.map((x) => ({ ...x, worked: methodOverride ?? x.worked })),
+      sections: built.sections.map((section) => ({
+        ...section,
+        method: methodOverride ?? section.method,
+      })),
     }
-  }, [name, pdfName, analysis, llmSizing, llmGauge, store.patternUnit])
+  }, [name, pdfName, analysis, llmSizing, llmGauge, store.patternUnit, constructionOverride, methodOverride, directionOverride, basisOverride, reviewInputs, editingPattern, text])
 
   const builderNotes = useMemo(
     () => buildSections(extractSectionCandidates(text), { sizeCount: (analysis.bust ?? [0]).length || 1 }).notes,
@@ -263,18 +340,48 @@ export default function AddPattern({ store, go }: ScreenProps) {
     to_fit: 'to fit body',
     unknown: 'basis unclear',
   }
-  const bustList = draft.sizing.bustOrChestIn
+  const bustList = draft.sizing.bustOrChestIn.filter((value) => Number.isFinite(value) && value > 0)
   const range =
     bustList.length > 1
       ? ` — bust ${fmtLen(bustList[0]!, store.displayUnit)}–${fmtLen(bustList[bustList.length - 1]!, store.displayUnit)}`
       : ''
+  const unknownReviewFields = [
+    draft.sizing.measurementBasis === 'unknown' ? 'measurement basis' : null,
+    draft.construction.type === 'unknown' ? 'construction family' : null,
+    (draft.construction.working.length === 0
+      || draft.construction.working.some((working) => working.method === 'unknown')
+      || draft.gauge.some((gauge) => gauge.worked === 'unknown')) ? 'working method' : null,
+  ].filter((x): x is string => x !== null)
 
-  const save = () => {
-    let unique = draft.meta.name
-    let n = 2
-    while (store.patterns.some((p) => p.meta.name === unique)) unique = `${draft.meta.name} (${n++})`
-    store.actions.addPattern({ ...draft, meta: { ...draft.meta, name: unique } })
-    toast(`Saved “${unique}” to the library`)
+  const save = (status: 'draft' | 'accepted') => {
+    if (reviewInputs.errors.length > 0) {
+      setError(`Review corrections need attention: ${reviewInputs.errors.join(' ')}`)
+      return
+    }
+    if (status === 'accepted' && (errCount > 0 || unknownReviewFields.length > 0)) {
+      setError(errCount > 0
+        ? 'This pattern still has structural errors. Save it as a draft, or correct the review fields before accepting.'
+        : `Confirm the ${unknownReviewFields.join(', ')} from the source before accepting this pattern. Save it as a draft if the source is incomplete.`)
+      return
+    }
+    const oldName = editingPattern?.meta.name
+    let unique = draft.meta.name.trim() || 'Untitled pattern'
+    if (!oldName) {
+      let n = 2
+      while (store.patterns.some((p) => p.meta.name === unique)) unique = `${draft.meta.name} (${n++})`
+    } else if (unique !== oldName && store.patterns.some((p) => p.meta.name === unique)) {
+      setError(`A pattern named “${unique}” already exists. Choose another name before saving this draft.`)
+      return
+    }
+    const nextPattern = { ...draft, meta: { ...draft.meta, name: unique, status } }
+    const saved = oldName
+      ? store.actions.updatePattern(oldName, nextPattern)
+      : store.actions.addPattern(nextPattern)
+    if (!saved) {
+      setError('The draft could not be saved because its JSON shape is unsafe. Correct the review fields and try again.')
+      return
+    }
+    toast(`${status === 'accepted' ? 'Accepted' : oldName ? 'Updated draft' : 'Saved draft'} “${unique}” to the library`)
     go({ name: 'library' })
   }
 
@@ -415,6 +522,47 @@ export default function AddPattern({ store, go }: ScreenProps) {
           <input value={name} onChange={(e) => setName(e.target.value)} />
         </label>
 
+        <div className="panel info">
+          <strong>Review sizing and gauge</strong>
+          <div className="form-grid">
+            <label className="field">
+              <span>Measurement basis</span>
+              <select value={basisOverride ?? draft.sizing.measurementBasis} onChange={(e) => setBasisOverride(e.target.value as MeasurementBasis)}>
+                <option value="unknown">Unknown — review source</option>
+                <option value="to_fit">To fit body</option>
+                <option value="finished">Finished garment</option>
+              </select>
+            </label>
+            <label className="field">
+              <span>Size labels (comma-separated)</span>
+              <input value={labelsOverride} placeholder={draft.sizing.labels.join(', ')} onChange={(e) => setLabelsOverride(e.target.value)} />
+            </label>
+            <label className="field">
+              <span>Finished bust/chest values ({store.patternUnit}; comma-separated)</span>
+              <input value={bustOverride} placeholder={draft.sizing.bustOrChestIn.filter((v) => Number.isFinite(v) && v > 0).map((v) => store.patternUnit === 'cm' ? Math.round(v * 2.54 * 100) / 100 : v).join(', ')} onChange={(e) => setBustOverride(e.target.value)} />
+            </label>
+            <label className="field">
+              <span>Stitches over span</span>
+              <input type="number" min="1" step="1" value={manualStsOver} placeholder={primaryGauge ? String(primaryGauge.stsOver) : ''} onChange={(e) => setManualStsOver(e.target.value)} />
+            </label>
+            <label className="field">
+              <span>Rows over span (optional)</span>
+              <input type="number" min="1" step="1" value={manualRowsOver} placeholder={primaryGauge?.rowsOver == null ? '' : String(primaryGauge.rowsOver)} onChange={(e) => setManualRowsOver(e.target.value)} />
+            </label>
+            <label className="field">
+              <span>Declared span ({store.patternUnit})</span>
+              <input type="number" min="0.1" step="0.1" value={manualGaugeSpan} placeholder={primaryGauge ? String(store.patternUnit === 'cm' ? Math.round(primaryGauge.overIn * 2.54 * 100) / 100 : primaryGauge.overIn) : ''} onChange={(e) => setManualGaugeSpan(e.target.value)} />
+            </label>
+          </div>
+          <small className="muted">Corrections are converted to canonical inches by code, recorded in the draft notes, and run through validation again before acceptance.</small>
+          {reviewInputs.errors.length > 0 && (
+            <div className="panel err" role="alert">
+              <strong>Review corrections need attention.</strong>
+              <ul>{reviewInputs.errors.map((message) => <li key={message}>{message}</li>)}</ul>
+            </div>
+          )}
+        </div>
+
         {/* Digest first, details below: what the parser understood, in one glance. */}
         <div className="panel info parse-summary">
           <div>
@@ -453,6 +601,31 @@ export default function AddPattern({ store, go }: ScreenProps) {
           </div>
         )}
 
+        <div className="panel info">
+          <strong>Review the parsed construction</strong>
+          <div className="form-grid">
+            <label className="field">
+              <span>Construction family</span>
+              <select value={constructionOverride ?? draft.construction.type} onChange={(e) => setConstructionOverride(e.target.value as ConstructionType)}>
+                {(['unknown', 'flat_drop_shoulder', 'flat_set_in', 'flat_raglan', 'top_down_raglan', 'top_down_yoke', 'bottom_up_yoke', 'top_down_set_in', 'flat_saddle', 'top_down_saddle', 'dolman_kimono'] as ConstructionType[]).map((x) => <option key={x} value={x}>{x.replaceAll('_', ' ')}</option>)}
+              </select>
+            </label>
+            <label className="field">
+              <span>Direction</span>
+              <select value={directionOverride ?? draft.construction.direction} onChange={(e) => setDirectionOverride(e.target.value as 'top_down' | 'bottom_up')}>
+                <option value="top_down">Top down</option><option value="bottom_up">Bottom up</option>
+              </select>
+            </label>
+            <label className="field">
+              <span>Working method</span>
+              <select value={methodOverride ?? (draft.construction.working[0]?.method ?? draft.gauge[0]?.worked ?? 'unknown')} onChange={(e) => setMethodOverride(e.target.value as WorkingMethod)}>
+                <option value="unknown">Unknown — review source</option><option value="flat">Flat</option><option value="in_the_round">In the round</option>
+              </select>
+            </label>
+          </div>
+          <small className="muted">These are editable review fields. Unknown construction, working method, and measurement basis stay blocked until you confirm them from the source.</small>
+        </div>
+
         <h3>Notation layer (deterministic)</h3>
         {notationRows.length === 0 ? (
           <p className="muted">Nothing parsed deterministically — check that a Gauge/Sizes block exists.</p>
@@ -472,6 +645,20 @@ export default function AddPattern({ store, go }: ScreenProps) {
         )}
 
         <h3>LLM extract (via /api, evidence-gated)</h3>
+        {!llmRequested && (
+          <div className="row">
+            <button onClick={requestLlmAssist} disabled={!analysis.sizingSeg && !analysis.gaugeSeg}>
+              Ask the LLM to help extract these fields
+            </button>
+            <span className="muted small">Nothing is sent until you press this button.</span>
+          </div>
+        )}
+        {llmRequested && analysis.sizingSeg && (
+          <details className="small"><summary>Text sent for sizing assistance</summary><pre className="math">{analysis.sizingSeg.text}</pre></details>
+        )}
+        {llmRequested && analysis.gaugeSeg && (
+          <details className="small"><summary>Text sent for gauge assistance</summary><pre className="math">{analysis.gaugeSeg.text}</pre></details>
+        )}
         {(['sizing', 'gauge'] as const).map((kind) => {
           const o = kind === 'sizing' ? llmSizing : llmGauge
           return (
@@ -641,9 +828,8 @@ export default function AddPattern({ store, go }: ScreenProps) {
         </details>
 
         <div className="row">
-          <button className="primary" disabled={!name.trim()} onClick={save}>
-            Save to library
-          </button>
+          <button disabled={!name.trim() || reviewInputs.errors.length > 0} onClick={() => save('draft')}>Save as draft</button>
+          <button className="primary" disabled={!name.trim() || errCount > 0 || unknownReviewFields.length > 0 || reviewInputs.errors.length > 0} onClick={() => save('accepted')}>Accept pattern</button>
         </div>
         {error && <div className="panel err">{error}</div>}
       </section>

@@ -21,6 +21,8 @@ export default function SheetScreen({
   }
 
   const { sheet, validation } = result
+  const status = validation.status ?? (validation.pass ? 'verified' : 'blocked')
+  const statusLabel = status === 'verified' ? 'verified' : status === 'advisory' ? 'advisory' : 'blocked'
 
   return (
     <>
@@ -30,7 +32,7 @@ export default function SheetScreen({
         <span>
           {INTENT_LABELS[sheet.intent]} · {result.patternName} · size {result.sizeLabel} ·{' '}
           {new Date(sheet.createdAt).toLocaleDateString()} ·{' '}
-          {validation.pass ? 'verified (all checks passed)' : 'BLOCKED — validation failed'}
+          {statusLabel}
         </span>
       </header>
 
@@ -53,12 +55,16 @@ export default function SheetScreen({
 
       <section className="card">
         <h3>Validation gate</h3>
-        {validation.pass ? (
+        {status === 'verified' ? (
           <div className="panel ok">
             PASSED — every Σ-check exact and every dimension within {fmtLen(0.25, store.displayUnit)} drift
             ({validation.dimensionChecks.length} dimension
             {validation.dimensionChecks.length === 1 ? '' : 's'}, {validation.sumChecks.length} Σ-check
             {validation.sumChecks.length === 1 ? '' : 's'}).
+          </div>
+        ) : status === 'advisory' ? (
+          <div className="panel warn">
+            ADVISORY — the available evidence is incomplete, so this sheet is not a verified knitting certificate.
           </div>
         ) : (
           <div className="panel err">
@@ -140,12 +146,17 @@ export default function SheetScreen({
             Advisory mode: no schematic/sections to recompute (NO_SCHEMATIC draft).
           </p>
         )}
+        {validation.reasons.length > 0 && (
+          <ul className="muted small">
+            {validation.reasons.map((reason, i) => <li key={i}>{reason}</li>)}
+          </ul>
+        )}
       </section>
 
       <section className="card print-area">
         <h3>Steps</h3>
-        {!validation.pass && <p className="muted">Withheld — validation gate failed.</p>}
-        {validation.pass && sheet.warnings.length > 0 && (
+        {status !== 'verified' && <p className="muted">Withheld — only verified sheets contain actionable instructions.</p>}
+        {status === 'verified' && sheet.warnings.length > 0 && (
           <div className="panel warn">
             <strong>Warnings</strong>
             <ul>
@@ -155,10 +166,10 @@ export default function SheetScreen({
             </ul>
           </div>
         )}
-        {validation.pass && sheet.steps.length === 0 && (
+        {status === 'verified' && sheet.steps.length === 0 && (
           <p className="muted">No steps were needed for this request.</p>
         )}
-        {validation.pass &&
+        {status === 'verified' &&
           sheet.steps.map((step, i) => (
             <article key={step.id} className="step">
               <h4>

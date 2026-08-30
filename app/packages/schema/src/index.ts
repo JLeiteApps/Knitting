@@ -4,7 +4,8 @@
  * `sizing.sizeCount`. All lengths are inches (float) internally [policy A2].
  */
 
-export type WorkingMethod = 'flat' | 'in_the_round';
+/** Working method is unknown until the pattern states it or the user confirms it. */
+export type WorkingMethod = 'flat' | 'in_the_round' | 'unknown';
 
 export type MeasurementBasis = 'to_fit' | 'finished' | 'unknown';
 
@@ -35,6 +36,7 @@ export interface GaugeBlock {
 }
 
 export type ConstructionType =
+  | 'unknown'
   | 'flat_drop_shoulder'
   | 'flat_set_in'
   | 'flat_raglan'
@@ -145,6 +147,9 @@ export interface PatternMeta {
   copyrightNote?: string;
   parseDate?: string;
   parserConfidence?: number;
+  status?: 'draft' | 'accepted';
+  /** Stable local identity used for backup collision previews. */
+  id?: string;
 }
 
 export interface Pattern {

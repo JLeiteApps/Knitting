@@ -62,6 +62,17 @@ describe('intent 5: gauge_conversion', () => {
     expect(validation.pass).toBe(true);
     expect(sheet.steps[0]!.math[0]).toContain('5 / 4.5');
   });
+
+  it('reports source-to-target row-gauge drift for the requested size', () => {
+    const { sheet } = applyIntent(
+      flaxLike(),
+      { ...req({ kind: 'gauge', userStsPerIn: 5, userRowsPerIn: 8 }, 'gauge_conversion'), sizeIndex: 1 },
+      profile(),
+    );
+    // Size M body is 17.75"; source 7 rows/in → target 8 rows/in.
+    expect(sheet.warnings.join(' ')).toContain('Row-gauge drift 2.54"');
+    expect(sheet.warnings.join(' ')).toContain('EXCEEDS');
+  });
 });
 
 describe('intent 3: body_length_change', () => {
@@ -155,5 +166,20 @@ describe('intent 2: bust_accommodation', () => {
     const comp = sheet.steps.find((s) => s.id === 'bust-length-comp')!;
     // finished bust 38 (size 0) − full bust 43 = −5 → × ⅔ = 3.33
     expect(comp.title).toContain('3.33');
+  });
+});
+
+describe('validation evidence gate', () => {
+  it('does not certify Σ-only data when every schematic dimension is unsupported', () => {
+    const pattern = flaxLike();
+    pattern.schematic = [
+      { piece: 'sleeve', dimension: 'upper_arm_width', in: [10, 11, 12] },
+    ];
+    const validation = validateAgainstSchematic(pattern, 0);
+    expect(validation.status).toBe('advisory');
+    expect(validation.pass).toBe(false);
+    expect(validation.dimensionChecks).toHaveLength(0);
+    expect(validation.sumChecks.length).toBeGreaterThan(0);
+    expect(validation.reasons.join(' ')).toContain('no supported dimension can be recomputed');
   });
 });

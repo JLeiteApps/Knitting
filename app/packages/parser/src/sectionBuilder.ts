@@ -16,7 +16,7 @@
  *  - Events: duplicate bracket/repeat pairs are deduplicated; sub-sizeCount
  *    repeat lists follow the trailing-sizes convention (noted for review).
  */
-import type { Section, ShapingEvent } from '@knitting/schema';
+import type { Section, ShapingEvent, WorkingMethod } from '@knitting/schema';
 import type {
   CandidateEvent,
   SectionCandidate,
@@ -25,7 +25,7 @@ import type {
 export interface BuildOptions {
   sizeCount: number;
   /** Garment working method (Flax: in_the_round). Per-section overrides later. */
-  method?: 'flat' | 'in_the_round';
+  method?: WorkingMethod;
   /** Pattern-declared unit: 'cm' converts length lists /2.54 (dropdown declaration). */
   unit?: 'in' | 'cm';
 }

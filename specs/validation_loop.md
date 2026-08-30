@@ -1,54 +1,60 @@
-# SPEC — Validation Loop (v0.1)
+# SPEC — Validation Loop (v0.2, 2026-08-30)
 
-> Phase 4 deliverable 5 of 5. The recompute-and-verify loop that gates every
-> modification sheet (app plan §2: "sheets render only after schematic recompute
-> and all Σ-checks pass; failures are blocking diagnostics"). Implemented in
-> `schema/validate.ts` + `engine/apply.ts`; acceptance = the golden suite.
+The runtime contract is implemented by `schema/validate.ts` and `engine/apply.ts`.
+Validation reports contain `status`, `pass`, `reasons`, dimension checks and Σ checks.
 
-## 1. Two tiers, two jobs
-| Tier | Function | Scope | Effect |
-|---|---|---|---|
-| IR validation | `validatePattern(pattern)` | ALL sizes: array lengths vs `sizeCount`, per-section Σ (`start + Σevents = end` at every size), schedule-span (`interval×times + variant rows ≤ section rows`), gauge normalization, stitch-pattern refs | diagnostics list (parse review + golden acceptance); errors block "accepted" status |
-| Sheet gate | `validateAgainstSchematic(modified, sizeIndex)` | the REQUESTED size: schematic drift + Σ | `pass=false` ⇒ the UI withholds steps entirely |
+## 1. Two tiers
 
-## 2. Schematic recompute (KB §13.8)
-For every schematic dimension of a piece with a matching section:
-- `width_at_chest`: recomputed = `section.startsWith.sts[i] / gauge.stsPerIn`;
-  tube sections (body/body_tube) hold the full circumference → **halved** for
-  back/front schematic dims (piece × 2 = pullover bust).
-- drift = |target − recomputed|; PASS ⇔ drift < **0.25″** (§17.2 tolerance).
-- Dimensions without a recompute rule are advisory-skipped (documented, not guessed).
+| Tier | Scope | Result |
+|---|---|---|
+| `validatePattern` / `validatePatternUnknown` | All sizes: runtime shape, finite numbers, enums, positive gauges, aligned arrays, integer checkpoints, nonnegative events, schedule spans, normalization and Σ | Structural errors prevent acceptance and engine execution. Explicitly incomplete drafts can still be saved through a limited allowlist. |
+| `validateAgainstSchematic` | Modified pattern plus requested-size dimensions and optional requested length/width targets | `verified`, `advisory` or `blocked`; only verified output exposes instructions. |
 
-## 3. Σ reconciliation
-Per section (gate: requested size; schema: every size):
-`Σevents = Σ perSideSts[i] × 2 × (times[i] + variantTimes[i])` over inc/dec/BO/CO
-events (short-rows/markers/divides contribute 0 by design). Check:
-`start + Σevents = end`, EXACT integer equality. Diagnostics carry the full
-equation (`178 + Σevents 0 = 178`) — the same strings appear in golden tests.
+An explicit unknown working method is different from a malformed value. Unknown
+methods can remain in drafts, but arbitrary invalid methods cannot enter storage.
+Starting checkpoints must be positive; a fully closed section may end at zero.
 
-## 4. The loop in one pass
-```
-request → applyIntent (compute, Σ-preserving by construction)
-        → §6 rebalance inside conversions (residue absorbed or THROWN)
-        → validateAgainstSchematic(modified, sizeIndex)
-        → pass ? render sheet (steps + drift table + Σ list)
-                : render BLOCKING diagnostics (sheet withheld)
-```
-Post-modification IRs are additionally run through `validatePattern` in golden
-tests (`validatePattern(modified) = []`) — the product bar: a modification must
-leave the WHOLE pattern clean at every size, not just the requested one.
+## 2. Dimension checks
 
-## 5. Golden acceptance criteria (plan Phase 5 QA; implemented)
-Exact match against hand-computed numbers (never engine-derived); drift < 0.25″
-per dimension; every Σ exact; expected-BLOCK cases assert the §6 diagnostic
-message (Flax F3, flat-setin FS2). Current coverage: flax-like (3 intents + §6
-block), Flax real-PDF (notation/IR/5 intent cases incl. cm), flat set-in
-(family-aware body/sleeve, parity block).
+Chest width is recomputed from starting stitches divided by primary stitch gauge.
+Tube counts are full circumference and are halved for a back/front width target.
+Body/sleeve requests additionally compare section rows divided by row gauge with
+the requested length. Missing rows or row gauge leave that check advisory.
+The implemented tolerance is strictly less than 0.25 inches per dimension.
 
-## 6. Known limitations (documented contracts)
-- The gate checks the requested size only; cross-size cleanliness is the schema
-  tier's job (and the golden bar).
-- Advisory mode: patterns without schematic/sections gate on Σ alone
-  (NO_SCHEMATIC warning at parse).
-- Dart insertion pre-dates per-size arrays in older fixtures — current engine
-  writes full arrays (flat-setin F4b regression).
+Dimensions without a recompute rule are not silently invented. If no supported
+schematic dimension can be recomputed, the report names the limitation. This is
+not a complete geometric garment simulation; see the capability registry before
+enabling a new modification.
+
+## 3. Stitch reconciliation
+
+For each size, `start + Σevents = end` exactly. Shaping uses per-side stitches,
+two sides, and schedule repetitions (including variant repetitions). Short rows
+do not change stitch counts, so a passing Σ does not prove their placement.
+An empty short-row turn-point representation remains advisory.
+
+## 4. States and rendering
+
+- **Verified**: at least one dimension and one Σ check exist, all implemented
+  checks pass, and structural errors/warnings or incomplete-evidence reasons do
+  not remain. `pass` is true only in this state.
+- **Advisory**: evidence is missing without a failed implemented check. Instructions
+  are withheld; the report explains what cannot yet be verified.
+- **Blocked**: structural errors, failed Σ or excessive dimensional drift.
+  Instructions are withheld.
+
+Input shape and request numbers are validated before calculation; malformed inputs
+or unsupported geometry may throw a diagnostic before a sheet is created.
+After calculation the runtime also validates the modified IR across sizes.
+
+## 5. Saved history and acceptance coverage
+
+Stored booleans are not proof. Reloaded/restored sheets become advisory until the
+request is rerun with current inputs; previously blocked/failed sheets stay blocked.
+Original pattern/profile snapshots for automatic historical replay are a follow-up.
+
+Golden families cover top-down raglan, flat set-in and bottom-up yoke. Additional
+review cases cover malformed imports, missing targets, nonfinite requests, unknown
+methods, short-row geometry and false certification from Σ alone. Real PDF text
+extraction and partial draft persistence are distinct from hand-verified golden IR.

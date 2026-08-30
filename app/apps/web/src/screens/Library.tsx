@@ -4,7 +4,7 @@ import { INTENT_LABELS } from '../intents'
 import { fmtLen } from '../units'
 import { toast } from '../toast'
 import ConfirmButton from '../ConfirmButton'
-import { backupFilename, buildBackup, downloadJson, parseBackup } from '../backup'
+import { backupFilename, downloadJson, parseBackup } from '../backup'
 import type { ScreenProps } from '../App'
 
 /** Plain-language labels for validator codes (code shown in the tooltip). */
@@ -21,23 +21,18 @@ const DIAG_LABELS: Record<string, string> = {
 export default function Library({ store, go }: ScreenProps) {
   const restoreInput = useRef<HTMLInputElement>(null)
 
-  const downloadBackup = () => {
-    downloadJson(
-      backupFilename(),
-      buildBackup({
-        patterns: store.patterns,
-        profiles: store.profiles,
-        results: store.results,
-        displayUnit: store.displayUnit,
-        patternUnit: store.patternUnit,
-        activeProfileId: store.activeProfileId,
-      }),
-    )
-    toast(
-      `Backup downloaded — ${store.patterns.length} pattern${store.patterns.length === 1 ? '' : 's'}, ` +
-        `${store.profiles.length} profile${store.profiles.length === 1 ? '' : 's'}, ` +
-        `${store.results.length} sheet${store.results.length === 1 ? '' : 's'}`,
-    )
+  const downloadBackup = async () => {
+    try {
+      const backup = await store.actions.createBackup()
+      downloadJson(backupFilename(), backup)
+      toast(
+        `Backup downloaded — ${backup.patterns.length} pattern${backup.patterns.length === 1 ? '' : 's'}, ` +
+          `${backup.profiles.length} profile${backup.profiles.length === 1 ? '' : 's'}, ` +
+          `${backup.results.length} sheet${backup.results.length === 1 ? '' : 's'}`,
+      )
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Backup could not be created; keep this page open and retry.')
+    }
   }
 
   const restoreFrom = async (file: File) => {
@@ -46,10 +41,13 @@ export default function Library({ store, go }: ScreenProps) {
       toast('That file is not a Knit Adapt backup')
       return
     }
-    store.actions.restoreBackup(backup)
-    toast(`Backup restored — ${backup.patterns.length} pattern${backup.patterns.length === 1 ? '' : 's'}, ` +
-      `${backup.profiles.length} profile${backup.profiles.length === 1 ? '' : 's'} ` +
-      `(duplicates skipped)`)
+    if (store.actions.restoreBackup(backup)) {
+      toast(`Backup restored — ${backup.patterns.length} pattern${backup.patterns.length === 1 ? '' : 's'}, ` +
+        `${backup.profiles.length} profile${backup.profiles.length === 1 ? '' : 's'} ` +
+        `(duplicates skipped)`)
+    } else {
+      toast('Backup was not restored: an existing vault or identity conflict needs review.')
+    }
   }
 
   return (
@@ -103,7 +101,7 @@ export default function Library({ store, go }: ScreenProps) {
             const errors = diags.filter((d) => d.level === 'error')
             const warnings = diags.filter((d) => d.level === 'warning')
             const gauge = p.gauge.find((g) => g.primary)
-            const bust = p.sizing.bustOrChestIn
+            const bust = p.sizing.bustOrChestIn.filter((value) => Number.isFinite(value) && value > 0)
             return (
               <li key={p.meta.name} className="item">
                 <div className="item-body">
@@ -133,9 +131,17 @@ export default function Library({ store, go }: ScreenProps) {
                         draft — sections pending
                       </span>
                     )}
+                    {p.meta.status === 'draft' && p.sections.length > 0 && (
+                      <span className="chip info" title="This pattern was saved for review and can be edited before acceptance.">
+                        draft — review pending
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="item-actions">
+                  {p.meta.status === 'draft' && (
+                    <button onClick={() => go({ name: 'add', patternName: p.meta.name })}>Edit draft</button>
+                  )}
                   <button className="primary" onClick={() => go({ name: 'newmod', patternId: p.meta.name })}>
                     Modify
                   </button>
@@ -174,10 +180,10 @@ export default function Library({ store, go }: ScreenProps) {
                 </div>
                 <div className="chip-row">
                   <span
-                    className={r.validation.pass ? 'chip ok' : 'chip err'}
-                    title={r.validation.pass ? 'All stitch-count and measurement checks passed.' : 'A check failed — open the sheet for the diagnosis.'}
+                    className={(r.validation.status ?? (r.validation.pass ? 'verified' : 'blocked')) === 'verified' ? 'chip ok' : (r.validation.status ?? 'blocked') === 'advisory' ? 'chip warn' : 'chip err'}
+                    title={r.validation.status === 'advisory' ? 'Evidence is incomplete; open the sheet for the missing checks.' : r.validation.status === 'verified' ? 'All stitch-count and measurement checks passed.' : 'A check failed — open the sheet for the diagnosis.'}
                   >
-                    {r.validation.pass ? 'verified' : 'validation failed'}
+                    {r.validation.status ?? (r.validation.pass ? 'verified' : 'blocked')}
                   </span>
                   {r.sheet.warnings.length > 0 && (
                     <span className="chip warn">{r.sheet.warnings.length} warning(s)</span>

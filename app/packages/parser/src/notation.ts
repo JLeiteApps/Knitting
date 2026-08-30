@@ -79,7 +79,11 @@ export function parseGaugeStatement(text: string): ParsedGauge | null {
   const rows = text.match(/(\d+(?:\.\d+)?)\s*(?:rows|rounds)\b/i);
   const overInch = text.match(/=\s*(\d+(?:\.\d+)?)\s*(?:"|”|in\b|inches)/i)
     ?? text.match(/over\s+(\d+(?:\.\d+)?)\s*(?:"|”|in\b|inches)/i)
-    ?? text.match(/\/\s*(\d+(?:\.\d+)?)\s*(?:"|”|in\b|inches)/i);
+    ?? text.match(/\/\s*(\d+(?:\.\d+)?)\s*(?:"|”|in\b|inches)/i)
+    // Some pattern PDFs lose punctuation/spacing in extraction: preserve the
+    // explicit row count and span instead of treating the whole line as
+    // unknown merely because it says `20sts 24rows 4in`.
+    ?? text.match(/\b\d+(?:\.\d+)?\s*(?:rows|rounds)\b[\s\S]{0,12}?(\d+(?:\.\d+)?)\s*(?:"|”|in\b|inches)/i);
   const overCm = text.match(/=\s*(\d+(?:\.\d+)?)\s*cm\b/i)
     ?? text.match(/over\s+(\d+(?:\.\d+)?)\s*cm\b/i)
     ?? text.match(/\/\s*(\d+(?:\.\d+)?)\s*cm\b/i);
