@@ -148,7 +148,7 @@ export interface PatternMeta {
   parseDate?: string;
   parserConfidence?: number;
   status?: 'draft' | 'accepted';
-  /** Stable local identity used for backup collision previews. */
+  /** Optional identity metadata; current library/backup matching uses meta.name. */
   id?: string;
 }
 

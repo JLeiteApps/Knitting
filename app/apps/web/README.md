@@ -54,7 +54,7 @@ post-processing). The profile's "Show measurements in" dropdown drives the UI;
 the header toggle mirrors it and sticks the choice on the active profile.
 
 ## Security posture (2026-08-27 hardening)
-- **PDF parsing is confined**: pdf.js runs in a dedicated worker (`isEvalSupported: false`, 20 MB / 60-page caps) — a parser compromise lands with no DOM/storage access; the page talks postMessage only.
+- **PDF parsing uses a dedicated worker**: pdf.js runs off the page (`isEvalSupported: false`, 20 MB / 60-page caps), with no DOM or localStorage access. Workers can access IndexedDB, so this is not a complete storage-security boundary; the application keeps persistence in the page store and communicates through postMessage.
 - **No server-held secrets**: the extract + classify relays are BYOK — your API key is sent per-request, used once, never stored anywhere but this device. Caps: 8 KB segment / 12 fields / 32 KB body (extract), 2000-char raw request (classify); endpoints must be https.
 - **LLM output is untrusted data**: strict shape validation and the verbatim-evidence gate (extract) / pre-state intent gate with the absent-not-trusted NaN rule (classify) run BEFORE any field enters app state.
 - **Strict CSP** (no inline script/style) + HSTS/nosniff/DENY headers via `vercel.json` — CSP is header-only since 2026-08-28 (the meta-tag form broke Vite's dev styling); the dev API runs in-process inside the Vite server (no second listener).
