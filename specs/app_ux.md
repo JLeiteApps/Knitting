@@ -67,8 +67,10 @@ or conflicting records without replacing existing data. Identical records are
 skipped. Different encrypted envelopes are not merged automatically.
 
 History is not silently capped at fifty sheets. Reloaded/restored results are
-advisory until rerun, while failed results remain blocked. The import parser has a
-12 MiB character cap; exporting very large libraries needs future chunking UX.
+advisory until rerun, while failed results remain blocked. The importer and
+exporter share a 12 MiB UTF-8 serialized-file cap, including multibyte text;
+oversized files are rejected before reading or downloading with no live-data
+mutation. Exporting very large libraries needs future chunking UX.
 Before clearing browser data, download a backup and retain the vault passphrase.
 
 ## Interaction conventions (2026-08-28 polish pass)
@@ -92,21 +94,28 @@ Before clearing browser data, download a backup and retain the vault passphrase.
   on-screen chrome is `no-print`.
 - PDF drop zone accepts drag-and-drop (non-PDF drops get a friendly error).
 
-## Known UX debt (honest list)
+## Navigation recovery and known UX debt
+
+Profile, import/review, and per-pattern request forms retain typed, review and
+selection state when users navigate through the app or browser history. Drafts
+are tab-memory only: they are never placed in browser storage, backup files or
+history state, successful save/discard clears the relevant draft, and browser
+close/reload warns while one exists. Vault locking purges profile-form drafts,
+including an offscreen editor. API keys and vault passphrases are excluded.
 - Intent drafting is deterministic by default (2026-08-28 later, `nlGrammar.ts`)
   and browser-verified; the OPTIONAL LLM pass (`/api/classify`, BYOK key) is
   still only agent-smoke-tested — the live-key end-to-end run needs a human.
-- Modification-request gauge entry is still sts/inch. Import review accepts
-  counts over an explicit inch or cm span; partial/invalid corrections block
-  saving with a visible error instead of silently retaining the prior value.
+- Modification-request gauge entry accepts stitch count, optional row count,
+  measured span and explicit inches/cm, then shows the canonical per-inch
+  rate. Partial or invalid edits invalidate the earlier rate and block Run.
 - Mixed-unit patterns against the declared dropdown show up as review values
   with evidence; re-import with the other declaration.
 
 ## Reliability follow-ups
 - Saving state and storage failures are visible in the app shell; keep the page
   open until saving finishes and export a backup if storage fails.
-- Unsaved profile/request/import form navigation preservation remains unfinished;
-  save a profile or pattern draft before leaving its screen. Locking clears the
-  profile editor; saved ciphertext remains available for session unlock.
+- Form recovery is navigation-only, so save important edits before closing the
+  browser. Locking clears profile drafts; saved ciphertext remains available
+  for session unlock.
 - Four extension forms disclose blocked capabilities; they do not imply supported
   geometry. Android/Capacitor is excluded from the current batch.

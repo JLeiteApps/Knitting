@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { flaxLike } from '@knitting/engine'
 import type { FitProfile } from '@knitting/shared'
-import { backupFilename, buildBackup, mergeBackup, parseBackup } from './backup'
+import { backupFilename, buildBackup, MAX_BACKUP_BYTES, mergeBackup, parseBackup, serializeBackup, utf8ByteLength } from './backup'
 import type { StoredResult } from './store'
 import { sealVault } from './vault'
 
@@ -45,6 +45,16 @@ describe('backup file format', () => {
 
   it('filename is dated and human-readable', () => {
     expect(backupFilename()).toMatch(/^knit-adapt-backup-\d{4}-\d{2}-\d{2}\.json$/)
+  })
+
+  it('uses UTF-8 bytes, not JavaScript characters, for the shared export/import cap', () => {
+    const multibyte = 'é'.repeat(20)
+    expect(utf8ByteLength(multibyte)).toBe(40)
+    const within = JSON.stringify({ note: 'x'.repeat(MAX_BACKUP_BYTES - 100) })
+    expect(utf8ByteLength(within)).toBeLessThanOrEqual(MAX_BACKUP_BYTES)
+    const tooLarge = { note: 'é'.repeat(Math.ceil(MAX_BACKUP_BYTES / 2)) }
+    expect(() => serializeBackup(tooLarge)).toThrow(/12 MiB/)
+    expect(parseBackup(JSON.stringify({ ...buildBackup(source), note: 'é'.repeat(Math.ceil(MAX_BACKUP_BYTES / 2)) }))).toBeNull()
   })
 
   it('round-trips a history with more than one hundred sheets', () => {

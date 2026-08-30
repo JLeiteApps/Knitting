@@ -4,7 +4,7 @@ import { INTENT_LABELS } from '../intents'
 import { fmtLen } from '../units'
 import { toast } from '../toast'
 import ConfirmButton from '../ConfirmButton'
-import { backupFilename, downloadJson, parseBackup } from '../backup'
+import { backupFilename, downloadJson, MAX_BACKUP_BYTES, parseBackup } from '../backup'
 import type { ScreenProps } from '../App'
 
 /** Plain-language labels for validator codes (code shown in the tooltip). */
@@ -36,9 +36,20 @@ export default function Library({ store, go }: ScreenProps) {
   }
 
   const restoreFrom = async (file: File) => {
-    const backup = parseBackup(await file.text())
+    if (file.size > MAX_BACKUP_BYTES) {
+      toast('That backup is larger than the 12 MiB limit and was not read. Your current library was not changed.')
+      return
+    }
+    let json: string
+    try {
+      json = await file.text()
+    } catch {
+      toast('That backup could not be read. Your current library was not changed.')
+      return
+    }
+    const backup = parseBackup(json)
     if (!backup) {
-      toast('That file is not a Knit Adapt backup')
+      toast('That file is not a valid Knit Adapt backup, or exceeds the 12 MiB limit. Your current library was not changed.')
       return
     }
     if (store.actions.restoreBackup(backup)) {

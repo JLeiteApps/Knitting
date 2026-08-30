@@ -14,7 +14,7 @@ listener; in prod, `vercel.json` routes them as serverless functions.
   first run; `/api/*` served in-process by the middleware above)
 - `npm run build:web` — typecheck + production build
 - `npm run typecheck` — whole monorepo incl. this app
-- `npm test` — full suite (231 tests currently across schema/engine/parser/web)
+- `npm test` — full suite (252 tests currently across schema/engine/parser/web)
 
 ## Screens
 Library · Add pattern (parse review: dedicated pdf.js worker → notation →
@@ -24,7 +24,8 @@ reopened with their existing IR preserved) · Fit profile (Herzog fields,
 opt-in AES-GCM vault) · New modification (deterministic-first Draft:
 the rule grammar in `nlGrammar.ts` parses the request with no LLM and reports
 confidence; when it isn't 100% sure it explains why and offers an optional
-LLM pass via `/api/classify`; editable intent card + slot-filling gate) ·
+LLM pass via `/api/classify`; editable intent card + slot-filling gate; missing
+route patterns, unavailable sizes and deleted selected profiles block explicitly) ·
 Sheet (validation gate + "what these checks mean"
 explainer, drift table, Σ list, Print / Save as PDF with a standalone print
 header) · Library "Your data" (versioned JSON backup + restore — the
@@ -45,13 +46,24 @@ Dexie/IndexedDB durable storage with a localStorage bootstrap cache; installable
 PWA (manifest + app-shell service worker; `/api` never intercepted). Saved
 history is advisory until its original pattern/profile inputs are rerun.
 
-## Units (policy A2)
+## Navigation recovery and units (policy A2)
+
+Unsaved profile, import/review and per-pattern modification forms survive
+in-app/browser-back navigation in tab memory only. Drafts are never written to
+localStorage, IndexedDB, backups or history state; save/discard clears them,
+the browser warns before close/reload, and vault locking purges profile drafts.
+Passphrases and API keys are never draft data. Request gauge takes stitches,
+optional rows, measured span and an explicit inches/cm unit, then normalizes to
+the canonical per-inch rate; invalid or partial edits block Run.
 Inches are canonical internally; cm exists only at the boundaries, one exact
 conversion each: pattern import ("Pattern units" dropdown — declared, never
 guessed), user input (fields shown in the active unit convert ÷2.54), and
 output (the engine formats lengths at string generation via fmtLen — never
 post-processing). The profile's "Show measurements in" dropdown drives the UI;
 the header toggle mirrors it and sticks the choice on the active profile.
+
+Backups use one 12 MiB UTF-8 serialized-file limit for both export and import.
+Oversized files are rejected before download/read, leaving existing data intact.
 
 ## Security posture (2026-08-27 hardening)
 - **PDF parsing uses a dedicated worker**: pdf.js runs off the page (`isEvalSupported: false`, 20 MB / 60-page caps), with no DOM or localStorage access. Workers can access IndexedDB, so this is not a complete storage-security boundary; the application keeps persistence in the page store and communicates through postMessage.

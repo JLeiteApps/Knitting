@@ -137,9 +137,9 @@ function lengthDraft(
   const dir = explicitDir ?? wDir
   let deltaIn: number
   if (mag === null) {
-    deltaIn = dir === -1 ? -2 : 2
+    deltaIn = NaN
     reasons.push(
-      `No amount stated — drafted as ${deltaIn > 0 ? '+' : '−'}2″ (direction from your words). Set the real change on the card.`,
+      'No amount stated — set the real change on the card; no number was invented.',
     )
   } else if (dir === null) {
     deltaIn = mag
@@ -219,13 +219,13 @@ function singleIntentDraft(intent: Intent, text: string): NlDraft {
       const g = parseGauge(text)
       const reasons: string[] = []
       if (g.stsPerIn === null) {
-        reasons.push('No stitch gauge found in the text — defaulted to 5 sts/in; set your swatch gauge.')
+        reasons.push('No stitch gauge found in the text — enter stitches and measured span; no gauge was invented.')
       }
       return {
         intent: 'gauge_conversion',
         params: {
           kind: 'gauge',
-          userStsPerIn: g.stsPerIn ?? 5,
+          userStsPerIn: g.stsPerIn ?? NaN,
           ...(g.rowsPerIn ? { userRowsPerIn: g.rowsPerIn } : {}),
         },
         confidence: reasons.length === 0 ? 'exact' : 'probable',

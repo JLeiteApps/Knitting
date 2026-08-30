@@ -40,6 +40,21 @@ export interface BackupSource {
   profileVault?: VaultEnvelope | null
 }
 
+/** One shared cap for the bytes written to disk and bytes accepted at import. */
+export const MAX_BACKUP_BYTES = 12 * 1024 * 1024
+
+export function utf8ByteLength(value: string): number {
+  return new TextEncoder().encode(value).byteLength
+}
+
+export function serializeBackup(data: unknown): string {
+  const json = JSON.stringify(data, null, 2)
+  if (utf8ByteLength(json) > MAX_BACKUP_BYTES) {
+    throw new Error('This backup is larger than 12 MiB. Nothing was downloaded and your data was not changed; selective backups are not available yet.')
+  }
+  return json
+}
+
 export function buildBackup(src: BackupSource): BackupFile {
   return {
     app: 'knit-adapt',
@@ -66,7 +81,7 @@ export function backupFilename(): string {
 /** Strict parse of plaintext v1 and encrypted v2 backups. */
 export function parseBackup(json: string): BackupFile | null {
   try {
-    if (json.length > 12 * 1024 * 1024) return null
+    if (utf8ByteLength(json) > MAX_BACKUP_BYTES) return null
     const v = JSON.parse(json) as Partial<BackupFile> & { settings?: Partial<BackupSettings> }
     if (v.app !== 'knit-adapt' || (v.version !== 1 && v.version !== 2)) return null
     if (!Array.isArray(v.patterns) || !Array.isArray(v.profiles) || !Array.isArray(v.results)) {
@@ -234,7 +249,8 @@ function isValidation(value: unknown): value is StoredResult['validation'] {
 
 /** Browser-only download of a pretty-printed JSON file. */
 export function downloadJson(filename: string, data: unknown): void {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const json = serializeBackup(data)
+  const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

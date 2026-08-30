@@ -4,6 +4,7 @@ import { newId, useStore } from '../store'
 import { fmtLen, fromCanonicalInches, toCanonicalInches, type DisplayUnit } from '../units'
 import { toast } from '../toast'
 import ConfirmButton from '../ConfirmButton'
+import { clearSessionDraft, readSessionDraft, writeSessionDraft } from '../sessionDrafts'
 import type { ScreenProps } from '../App'
 
 type FieldKey =
@@ -51,6 +52,13 @@ const emptyForm = (unit: DisplayUnit): {
     backMidHipIn: '',
   },
 })
+
+interface ProfileDraft {
+  editingId: string | null
+  form: ReturnType<typeof emptyForm>
+}
+
+const PROFILE_DRAFT = 'profile:editor'
 
 function ProfileVaultUnlock({ store }: { store: ReturnType<typeof useStore> }) {
   const [pass, setPass] = useState('')
@@ -133,8 +141,9 @@ function ProfileVaultLock({ store }: { store: ReturnType<typeof useStore> }) {
 }
 
 export default function FitProfile({ store }: ScreenProps) {
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState(emptyForm(store.displayUnit))
+  const restored = readSessionDraft<ProfileDraft>(PROFILE_DRAFT)
+  const [editingId, setEditingId] = useState<string | null>(restored?.editingId ?? null)
+  const [form, setForm] = useState(restored?.form ?? emptyForm(store.displayUnit))
   const unit = form.unit
   const locked = Boolean(store.profileVault) && !store.profilesUnlocked
 
@@ -144,6 +153,15 @@ export default function FitProfile({ store }: ScreenProps) {
       setForm(emptyForm(store.displayUnit))
     }
   }, [locked, store.displayUnit])
+
+  const draftIsDirty = editingId !== null || form.label.trim() !== '' || Object.values(form.values).some((value) => value.trim() !== '')
+  useEffect(() => {
+    if (locked || !draftIsDirty) {
+      clearSessionDraft(PROFILE_DRAFT)
+      return
+    }
+    writeSessionDraft(PROFILE_DRAFT, { editingId, form })
+  }, [draftIsDirty, editingId, form, locked])
 
   const edit = (p: FitProfile) => {
     setEditingId(p.id)
@@ -193,6 +211,7 @@ export default function FitProfile({ store }: ScreenProps) {
     store.actions.setActiveProfile(profile.id)
     setEditingId(null)
     setForm(emptyForm(store.displayUnit))
+    clearSessionDraft(PROFILE_DRAFT)
     toast(`Profile “${label}” saved`)
   }
 
@@ -262,6 +281,7 @@ export default function FitProfile({ store }: ScreenProps) {
 
       {!locked && <section className="card">
         <h2>{editingId ? 'Edit profile' : 'New profile'}</h2>
+        {draftIsDirty && <p className="note">Unsaved changes are kept only while this browser tab stays open.</p>}
         <label className="field">
           <span>Show measurements in</span>
           <select value={unit} onChange={(e) => switchUnit(e.target.value as DisplayUnit)}>
@@ -308,6 +328,17 @@ export default function FitProfile({ store }: ScreenProps) {
               }}
             >
               Cancel
+            </button>
+          )}
+          {draftIsDirty && (
+            <button
+              onClick={() => {
+                setEditingId(null)
+                setForm(emptyForm(store.displayUnit))
+                clearSessionDraft(PROFILE_DRAFT)
+              }}
+            >
+              Discard unsaved changes
             </button>
           )}
         </div>

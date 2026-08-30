@@ -164,8 +164,10 @@ code — the LLM is now an OPTIONAL enhancer, never the default:
 - **The UI asks, never guesses silently**: non-exact drafts render the best-guess card plus
   the reasons and a "Let the LLM try" offer (BYOK key, per request); "Keep this draft"
   declines. Unit math (cm→in, over-N-sts→per-inch) happens in the grammar, in code.
-- 15 unit tests (`nlGrammar.test.ts`) pin exact/probable/unclear routing; extension
-  intents require explicit amounts/directions and never receive numeric defaults; browser-verified
+- 15 unit tests (`nlGrammar.test.ts`) pin exact/probable/unclear routing. Body/sleeve
+  length and gauge cards, as well as extension intents, require explicit numeric
+  inputs and never receive fabricated defaults; blank required values block Run.
+  Browser-verified
   end-to-end: deterministic draft → engine → validated sheet with no LLM anywhere.
 
 ## 7. Confirmation card ("show the math")

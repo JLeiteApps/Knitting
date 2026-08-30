@@ -6,6 +6,7 @@ import type { DisplayUnit } from './units'
 import { buildBackup, isProfile, isStoredPattern, mergeBackup, normalizeLegacyResult, parseVault, type BackupFile } from './backup'
 import { loadAll, saveAll } from './storage'
 import { openVault, sealVault, type VaultEnvelope } from './vault'
+import { clearSessionDrafts } from './sessionDrafts'
 
 /**
  * App state for the shell. Local-first (app plan §2): everything lives on the
@@ -296,6 +297,9 @@ export function useStore() {
       if (JSON.stringify(stateRef.current.profiles) !== serialized) return false
       vaultPassphrase.current = null
       lastSealedProfiles.current = serialized
+      // The editor can be offscreen when the user locks from a later render.
+      // Session drafts are memory-only, but measurements must leave it too.
+      clearSessionDrafts('profile:')
       setState((s) => ({ ...s, profiles: [], profileVault: envelope, activeProfileId: null, profilesUnlocked: false }))
       return true
     } catch { return false }

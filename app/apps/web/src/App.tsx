@@ -6,6 +6,7 @@ import AddPattern from './screens/AddPattern'
 import FitProfile from './screens/FitProfile'
 import NewModification from './screens/NewModification'
 import SheetScreen from './screens/SheetScreen'
+import { hasSessionDrafts, useSessionDraftRevision } from './sessionDrafts'
 
 export type Route =
   | { name: 'library' }
@@ -29,6 +30,7 @@ export default function App() {
   const store = useStore()
   const [route, setRoute] = useState<Route>({ name: 'library' })
   const mainRef = useRef<HTMLElement>(null)
+  useSessionDraftRevision()
 
   useEffect(() => {
     history.replaceState({ route: { name: 'library' } }, '')
@@ -39,6 +41,16 @@ export default function App() {
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
+
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (!hasSessionDrafts()) return
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  })
 
   const go = useCallback((next: Route) => {
     setRoute(next)
@@ -137,9 +149,9 @@ export default function App() {
         {store.storageError && <div className="panel err no-print" role="alert">{store.storageError}</div>}
         {store.saving && <p className="muted small no-print" role="status">Saving on this device… Keep this page open until saving finishes.</p>}
         {route.name === 'library' && <Library {...props} />}
-        {route.name === 'add' && <AddPattern key={route.patternName ?? 'new'} {...props} patternName={route.patternName} />}
+        {route.name === 'add' && <AddPattern key={route.patternName ? `existing:${route.patternName}` : 'new'} {...props} patternName={route.patternName} />}
         {route.name === 'profile' && <FitProfile {...props} />}
-        {route.name === 'newmod' && <NewModification {...props} patternId={route.patternId} />}
+        {route.name === 'newmod' && <NewModification key={route.patternId} {...props} patternId={route.patternId} />}
         {route.name === 'sheet' && (
           <SheetScreen {...props} result={store.results.find((r) => r.id === route.resultId)} />
         )}

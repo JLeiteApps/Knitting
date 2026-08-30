@@ -46,10 +46,10 @@ describe('deterministic grammar — exact understanding (no LLM needed)', () => 
 })
 
 describe('deterministic grammar — probable (offer the LLM)', () => {
-  it('missing amount defaults +2 with a reason', () => {
+  it('missing amount remains absent with a reason', () => {
     const d = classifyDeterministic('make it longer')!
     expect(d.intent).toBe('body_length_change')
-    expect(d.params).toMatchObject({ deltaIn: 2 })
+    expect(Number.isNaN((d.params as { deltaIn: number }).deltaIn)).toBe(true)
     expect(d.confidence).toBe('probable')
     expect(d.reasons.join(' ')).toMatch(/No amount stated/)
   })
@@ -88,7 +88,7 @@ describe('deterministic grammar — real-knitter fit-problem phrasings (Radcliff
   it('"the sleeves are too short" routes to sleeve length with known direction', () => {
     const d = classifyDeterministic('the sleeves are too short')!
     expect(d.intent).toBe('sleeve_length_change')
-    expect(d.params).toMatchObject({ deltaIn: -2 })
+    expect(Number.isNaN((d.params as { deltaIn: number }).deltaIn)).toBe(true)
     expect(d.confidence).toBe('probable') // no amount stated
     expect(d.reasons.join(' ')).toMatch(/No amount stated/)
   })

@@ -21,10 +21,11 @@ import {
 } from '@knitting/parser'
 import { pdfToText } from '../pdf'
 import { callExtractViaApi, getLlmKey, setLlmKey } from '../api'
-import { cmToIn, fmtLen } from '../units'
+import { cmToIn, fmtLen, inToCm } from '../units'
 import { validateReviewInputs } from '../reviewInputs'
 import { toast } from '../toast'
 import type { ScreenProps } from '../App'
+import { clearSessionDraft, readSessionDraft, writeSessionDraft } from '../sessionDrafts'
 
 /**
  * Add-pattern flow (parser grammar staged pipeline): PDF text layer (client,
@@ -40,6 +41,27 @@ interface LlmOutcome {
   kept: ExtractedField[]
   dropped: Array<{ path: string; reason: string }>
   error?: string
+}
+
+interface AddPatternDraft {
+  stage: Stage
+  text: string
+  name: string
+  pdfName: string | null
+  paste: string
+  constructionOverride: ConstructionType | null
+  methodOverride: WorkingMethod | null
+  directionOverride: 'top_down' | 'bottom_up' | null
+  basisOverride: MeasurementBasis | null
+  labelsOverride: string
+  bustOverride: string
+  manualStsOver: string
+  manualRowsOver: string
+  manualGaugeSpan: string
+  editingPattern: Pattern | null
+  patternUnit: 'in' | 'cm'
+  llmSizing: LlmOutcome | null
+  llmGauge: LlmOutcome | null
 }
 
 const SIZING_FIELDS: LlmFieldSpec[] = [
@@ -79,34 +101,74 @@ function bustFromFields(fields: ExtractedField[]): number[] | null {
   return f.value.every((v) => typeof v === 'number' && v > 10 && v < 90) ? (f.value as number[]) : null
 }
 
+/** Convert only a wholly valid manual list; malformed review text stays visible
+ * for the validation gate instead of being silently changed. */
+function convertMeasurementList(raw: string, from: 'in' | 'cm', to: 'in' | 'cm'): string {
+  if (from === to || raw.trim() === '') return raw
+  const numbers = raw.trim().split(/[,/\s]+/)
+  if (numbers.length === 0 || numbers.some((part) => part === '' || !Number.isFinite(Number(part)) || Number(part) <= 0)) return raw
+  return numbers.map((part) => String(to === 'cm' ? inToCm(Number(part)) : cmToIn(Number(part)))).join(', ')
+}
+
+function convertSpan(raw: string, from: 'in' | 'cm', to: 'in' | 'cm'): string {
+  if (from === to || raw.trim() === '') return raw
+  const value = Number(raw)
+  if (!Number.isFinite(value) || value <= 0) return raw
+  return String(to === 'cm' ? inToCm(value) : cmToIn(value))
+}
+
 export default function AddPattern({ store, go, patternName }: ScreenProps & { patternName?: string }) {
-  const [stage, setStage] = useState<Stage>('source')
+  const draftKey = patternName ? `add:existing:${patternName}` : 'add:new'
+  const restored = readSessionDraft<AddPatternDraft>(draftKey)
+  const [stage, setStage] = useState<Stage>(restored?.stage ?? 'source')
+  const [declaredUnit, setDeclaredUnit] = useState<'in' | 'cm'>(restored?.patternUnit ?? store.patternUnit)
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState('')
-  const [text, setText] = useState('')
-  const [name, setName] = useState('')
-  const [pdfName, setPdfName] = useState<string | null>(null)
-  const [paste, setPaste] = useState('')
+  const [text, setText] = useState(restored?.text ?? '')
+  const [name, setName] = useState(restored?.name ?? '')
+  const [pdfName, setPdfName] = useState<string | null>(restored?.pdfName ?? null)
+  const [paste, setPaste] = useState(restored?.paste ?? '')
   const [dragOver, setDragOver] = useState(false)
-  const [llmSizing, setLlmSizing] = useState<LlmOutcome>({ status: 'idle', kept: [], dropped: [] })
+  const [llmSizing, setLlmSizing] = useState<LlmOutcome>(restored?.llmSizing ?? { status: 'idle', kept: [], dropped: [] })
   const [llmKey, setLlmKeyState] = useState(getLlmKey())
-  const [llmGauge, setLlmGauge] = useState<LlmOutcome>({ status: 'idle', kept: [], dropped: [] })
+  const [llmGauge, setLlmGauge] = useState<LlmOutcome>(restored?.llmGauge ?? { status: 'idle', kept: [], dropped: [] })
   const [error, setError] = useState('')
-  const [constructionOverride, setConstructionOverride] = useState<ConstructionType | null>(null)
-  const [methodOverride, setMethodOverride] = useState<WorkingMethod | null>(null)
-  const [directionOverride, setDirectionOverride] = useState<'top_down' | 'bottom_up' | null>(null)
+  const [constructionOverride, setConstructionOverride] = useState<ConstructionType | null>(restored?.constructionOverride ?? null)
+  const [methodOverride, setMethodOverride] = useState<WorkingMethod | null>(restored?.methodOverride ?? null)
+  const [directionOverride, setDirectionOverride] = useState<'top_down' | 'bottom_up' | null>(restored?.directionOverride ?? null)
   const [llmRequested, setLlmRequested] = useState(false)
-  const [basisOverride, setBasisOverride] = useState<MeasurementBasis | null>(null)
-  const [labelsOverride, setLabelsOverride] = useState('')
-  const [bustOverride, setBustOverride] = useState('')
-  const [manualStsOver, setManualStsOver] = useState('')
-  const [manualRowsOver, setManualRowsOver] = useState('')
-  const [manualGaugeSpan, setManualGaugeSpan] = useState('')
-  const [editingPattern, setEditingPattern] = useState<Pattern | null>(null)
+  const [basisOverride, setBasisOverride] = useState<MeasurementBasis | null>(restored?.basisOverride ?? null)
+  const [labelsOverride, setLabelsOverride] = useState(restored?.labelsOverride ?? '')
+  const [bustOverride, setBustOverride] = useState(restored?.bustOverride ?? '')
+  const [manualStsOver, setManualStsOver] = useState(restored?.manualStsOver ?? '')
+  const [manualRowsOver, setManualRowsOver] = useState(restored?.manualRowsOver ?? '')
+  const [manualGaugeSpan, setManualGaugeSpan] = useState(restored?.manualGaugeSpan ?? '')
+  const [editingPattern, setEditingPattern] = useState<Pattern | null>(restored?.editingPattern ?? null)
   const llmRun = useRef(0)
+  const reviewRevision = useRef(0)
+  const sourceRun = useRef(0)
+  const sourceInitialized = useRef(false)
+  const [draftDirty, setDraftDirty] = useState(Boolean(restored))
+  const markDirty = () => {
+    reviewRevision.current += 1
+    setDraftDirty(true)
+    // A manual correction wins over an optional extraction. Do not leave a
+    // spinner that can no longer legitimately complete into this review.
+    setLlmSizing((current) => current.status === 'running' ? { status: 'idle', kept: [], dropped: [] } : current)
+    setLlmGauge((current) => current.status === 'running' ? { status: 'idle', kept: [], dropped: [] } : current)
+    setLlmRequested(false)
+  }
+  const switchDeclaredUnit = (next: 'in' | 'cm') => {
+    if (next === declaredUnit) return
+    markDirty()
+    setBustOverride((value) => convertMeasurementList(value, declaredUnit, next))
+    setManualGaugeSpan((value) => convertSpan(value, declaredUnit, next))
+    setDeclaredUnit(next)
+    store.actions.setPatternUnit(next)
+  }
 
   useEffect(() => {
-    if (!patternName) return
+    if (!patternName || restored) return
     const existing = store.patterns.find((p) => p.meta.name === patternName)
     if (!existing) {
       setError('That saved draft is no longer in the library.')
@@ -121,13 +183,29 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
     setName(existing.meta.name)
     setStage('review')
     setError('')
-  }, [patternName, store.patterns])
+  }, [patternName])
 
   useEffect(() => () => {
     // Ignore a relay completion after the review is abandoned/unmounted.
     llmRun.current += 1
+    sourceRun.current += 1
   }, [])
+
   useEffect(() => {
+    if (!draftDirty) return
+    writeSessionDraft(draftKey, {
+      stage, text, name, pdfName, paste, constructionOverride, methodOverride,
+      directionOverride, basisOverride, labelsOverride, bustOverride, manualStsOver,
+      manualRowsOver, manualGaugeSpan, editingPattern, patternUnit: declaredUnit,
+      llmSizing: llmSizing.status === 'done' ? llmSizing : null,
+      llmGauge: llmGauge.status === 'done' ? llmGauge : null,
+    })
+  }, [basisOverride, bustOverride, constructionOverride, declaredUnit, directionOverride, draftDirty, draftKey, editingPattern, labelsOverride, llmGauge, llmSizing, manualGaugeSpan, manualRowsOver, manualStsOver, methodOverride, name, paste, pdfName, stage, text])
+  useEffect(() => {
+    if (!sourceInitialized.current) {
+      sourceInitialized.current = true
+      return
+    }
     // Corrections belong to the source they were reviewed against.
     setLlmSizing({ status: 'idle', kept: [], dropped: [] })
     setLlmGauge({ status: 'idle', kept: [], dropped: [] })
@@ -142,22 +220,30 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
     setManualRowsOver('')
     setManualGaugeSpan('')
     llmRun.current += 1
+    reviewRevision.current += 1
   }, [text])
 
   const handleFile = async (file: File) => {
+    markDirty()
+    const runId = ++sourceRun.current
     setBusy(true)
     setError('')
     try {
-      const extracted = await pdfToText(file, (p) => setProgress(`Extracting text — page ${p.done}/${p.total}`))
+      const extracted = await pdfToText(file, (p) => {
+        if (runId === sourceRun.current) setProgress(`Extracting text — page ${p.done}/${p.total}`)
+      })
+      if (runId !== sourceRun.current) return
       setText(extracted.text)
       setPdfName(file.name)
       setName(file.name.replace(/\.pdf$/i, ''))
       setStage('review')
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      if (runId === sourceRun.current) setError(e instanceof Error ? e.message : String(e))
     } finally {
-      setBusy(false)
-      setProgress('')
+      if (runId === sourceRun.current) {
+        setBusy(false)
+        setProgress('')
+      }
     }
   }
 
@@ -213,7 +299,7 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
     stsOver: manualStsOver,
     rowsOver: manualRowsOver,
     span: manualGaugeSpan,
-  }, store.patternUnit, !(editingPattern && !text.trim()) && bustOverride.trim() !== '' ? null : reviewSizeCount), [labelsOverride, bustOverride, manualStsOver, manualRowsOver, manualGaugeSpan, store.patternUnit, reviewSizeCount, editingPattern, text])
+  }, declaredUnit, !(editingPattern && !text.trim()) && bustOverride.trim() !== '' ? null : reviewSizeCount), [labelsOverride, bustOverride, manualStsOver, manualRowsOver, manualGaugeSpan, declaredUnit, reviewSizeCount, editingPattern, text])
 
   // LLM extraction is an explicit user action. A remembered key never causes
   // source text to leave the device by itself.
@@ -224,12 +310,13 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
     if (segs.length === 0) return
     setLlmRequested(true)
     const runId = ++llmRun.current
+    const revisionAtStart = reviewRevision.current
     const run = async () => {
       for (const { kind, seg, fields } of segs) {
         const setLlm = kind === 'sizing' ? setLlmSizing : setLlmGauge
         setLlm({ status: 'running', kept: [], dropped: [] })
         const out = await callExtractViaApi(seg.text, kind, fields)
-        if (runId !== llmRun.current) return
+        if (runId !== llmRun.current || revisionAtStart !== reviewRevision.current) return
         if (!out.ok || !out.kept) setLlm({ status: 'error', kept: [], dropped: [], error: out.error })
         else setLlm({ status: 'done', kept: out.kept, dropped: out.dropped ?? [] })
       }
@@ -238,7 +325,7 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
   }
 
   const draft: Pattern = useMemo(() => {
-    const cm = store.patternUnit === 'cm'
+    const cm = declaredUnit === 'cm'
     const conv = (v: number) => (cm ? Math.round(cmToIn(v) * 100) / 100 : v)
     const llmBust = llmSizing.status === 'done' ? bustFromFields(llmSizing.kept) : null
     // API extraction is normalized to canonical inches by the client.  Only
@@ -299,7 +386,7 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
           }
         })()
       : buildPatternDraft({
-          text, name, pdfRef: pdfName, unit: store.patternUnit, bustOrChestIn: reviewBust ?? bust, gauge: g,
+          text, name, pdfRef: pdfName, unit: declaredUnit, bustOrChestIn: reviewBust ?? bust, gauge: g,
           labels: reviewLabels ?? (llmSizing.status === 'done' ? (llmSizing.kept.find((f) => f.path === 'sizes.labels')?.value as string | undefined)?.split(',').map((x) => x.trim()) : null),
           parserConfidence: total > 0 ? Math.round((high / total) * 100) / 100 : undefined,
           measurementBasis: basisOverride ?? undefined,
@@ -324,7 +411,7 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
         method: methodOverride ?? section.method,
       })),
     }
-  }, [name, pdfName, analysis, llmSizing, llmGauge, store.patternUnit, constructionOverride, methodOverride, directionOverride, basisOverride, reviewInputs, editingPattern, text])
+  }, [name, pdfName, analysis, llmSizing, llmGauge, declaredUnit, constructionOverride, methodOverride, directionOverride, basisOverride, reviewInputs, editingPattern, text])
 
   const builderNotes = useMemo(
     () => buildSections(extractSectionCandidates(text), { sizeCount: (analysis.bust ?? [0]).length || 1 }).notes,
@@ -381,6 +468,8 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
       setError('The draft could not be saved because its JSON shape is unsafe. Correct the review fields and try again.')
       return
     }
+    clearSessionDraft(draftKey)
+    setDraftDirty(false)
     toast(`${status === 'accepted' ? 'Accepted' : oldName ? 'Updated draft' : 'Saved draft'} “${unique}” to the library`)
     go({ name: 'library' })
   }
@@ -396,8 +485,8 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
         <label className="field">
           <span>Pattern units (how the document states measurements)</span>
           <select
-            value={store.patternUnit}
-            onChange={(e) => store.actions.setPatternUnit(e.target.value as 'in' | 'cm')}
+            value={declaredUnit}
+            onChange={(e) => switchDeclaredUnit(e.target.value as 'in' | 'cm')}
           >
             <option value="in">Inches</option>
             <option value="cm">Centimeters</option>
@@ -456,7 +545,7 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
           <textarea
             rows={8}
             value={paste}
-            onChange={(e) => setPaste(e.target.value)}
+            onChange={(e) => { markDirty(); setPaste(e.target.value) }}
             placeholder={'Paste the sizing, gauge and instruction blocks.\nInclude "Gauge: 18 sts and 28 rows = 4 in" style lines.'}
           />
           <div className="row">
@@ -464,6 +553,10 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
               className="primary"
               disabled={paste.trim().length < 10}
               onClick={() => {
+                markDirty()
+                sourceRun.current += 1
+                setBusy(false)
+                setProgress('')
                 setText(paste)
                 setPdfName(null)
                 setName('Pasted pattern')
@@ -474,6 +567,22 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
             </button>
           </div>
         </details>
+        {draftDirty && <div className="panel info small">
+          <p>This unsaved import draft is kept only while this browser tab stays open.</p>
+          <button onClick={() => {
+            sourceRun.current += 1
+            llmRun.current += 1
+            setBusy(false)
+            setProgress('')
+            clearSessionDraft(draftKey)
+            setDraftDirty(false)
+            setPaste('')
+            setText('')
+            setName('')
+            setPdfName(null)
+            setError('')
+          }}>Discard unsaved changes</button>
+        </div>}
         {error && <div className="panel err">{error}</div>}
       </section>
     )
@@ -492,7 +601,7 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
     notationRows.push({
       path: 'sizes.bust_in',
       value:
-        store.patternUnit === 'cm'
+        declaredUnit === 'cm'
           ? `${analysis.bust.join(' / ')} cm → ${analysis.bust.map((v) => Math.round(cmToIn(v) * 100) / 100).join(' / ')}"`
           : analysis.bust.join(' / '),
       source: 'notation',
@@ -513,13 +622,14 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
     <>
       <section className="card">
         <div className="card-head">
-          <h2>Parse review</h2>
+        <h2>Parse review</h2>
+        {draftDirty && <p className="note">Unsaved review changes are kept only while this browser tab stays open.</p>}
           <button onClick={() => setStage('source')}>← Source</button>
         </div>
 
         <label className="field">
           <span>Pattern name</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} />
+          <input value={name} onChange={(e) => { markDirty(); setName(e.target.value) }} />
         </label>
 
         <div className="panel info">
@@ -527,7 +637,7 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
           <div className="form-grid">
             <label className="field">
               <span>Measurement basis</span>
-              <select value={basisOverride ?? draft.sizing.measurementBasis} onChange={(e) => setBasisOverride(e.target.value as MeasurementBasis)}>
+              <select value={basisOverride ?? draft.sizing.measurementBasis} onChange={(e) => { markDirty(); setBasisOverride(e.target.value as MeasurementBasis) }}>
                 <option value="unknown">Unknown — review source</option>
                 <option value="to_fit">To fit body</option>
                 <option value="finished">Finished garment</option>
@@ -535,23 +645,23 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
             </label>
             <label className="field">
               <span>Size labels (comma-separated)</span>
-              <input value={labelsOverride} placeholder={draft.sizing.labels.join(', ')} onChange={(e) => setLabelsOverride(e.target.value)} />
+              <input value={labelsOverride} placeholder={draft.sizing.labels.join(', ')} onChange={(e) => { markDirty(); setLabelsOverride(e.target.value) }} />
             </label>
             <label className="field">
-              <span>Finished bust/chest values ({store.patternUnit}; comma-separated)</span>
-              <input value={bustOverride} placeholder={draft.sizing.bustOrChestIn.filter((v) => Number.isFinite(v) && v > 0).map((v) => store.patternUnit === 'cm' ? Math.round(v * 2.54 * 100) / 100 : v).join(', ')} onChange={(e) => setBustOverride(e.target.value)} />
+              <span>Finished bust/chest values ({declaredUnit}; comma-separated)</span>
+              <input value={bustOverride} placeholder={draft.sizing.bustOrChestIn.filter((v) => Number.isFinite(v) && v > 0).map((v) => declaredUnit === 'cm' ? Math.round(v * 2.54 * 100) / 100 : v).join(', ')} onChange={(e) => { markDirty(); setBustOverride(e.target.value) }} />
             </label>
             <label className="field">
               <span>Stitches over span</span>
-              <input type="number" min="1" step="1" value={manualStsOver} placeholder={primaryGauge ? String(primaryGauge.stsOver) : ''} onChange={(e) => setManualStsOver(e.target.value)} />
+              <input type="number" min="1" step="1" value={manualStsOver} placeholder={primaryGauge ? String(primaryGauge.stsOver) : ''} onChange={(e) => { markDirty(); setManualStsOver(e.target.value) }} />
             </label>
             <label className="field">
               <span>Rows over span (optional)</span>
-              <input type="number" min="1" step="1" value={manualRowsOver} placeholder={primaryGauge?.rowsOver == null ? '' : String(primaryGauge.rowsOver)} onChange={(e) => setManualRowsOver(e.target.value)} />
+              <input type="number" min="1" step="1" value={manualRowsOver} placeholder={primaryGauge?.rowsOver == null ? '' : String(primaryGauge.rowsOver)} onChange={(e) => { markDirty(); setManualRowsOver(e.target.value) }} />
             </label>
             <label className="field">
-              <span>Declared span ({store.patternUnit})</span>
-              <input type="number" min="0.1" step="0.1" value={manualGaugeSpan} placeholder={primaryGauge ? String(store.patternUnit === 'cm' ? Math.round(primaryGauge.overIn * 2.54 * 100) / 100 : primaryGauge.overIn) : ''} onChange={(e) => setManualGaugeSpan(e.target.value)} />
+              <span>Declared span ({declaredUnit})</span>
+              <input type="number" min="0.1" step="0.1" value={manualGaugeSpan} placeholder={primaryGauge ? String(declaredUnit === 'cm' ? Math.round(primaryGauge.overIn * 2.54 * 100) / 100 : primaryGauge.overIn) : ''} onChange={(e) => { markDirty(); setManualGaugeSpan(e.target.value) }} />
             </label>
           </div>
           <small className="muted">Corrections are converted to canonical inches by code, recorded in the draft notes, and run through validation again before acceptance.</small>
@@ -606,19 +716,19 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
           <div className="form-grid">
             <label className="field">
               <span>Construction family</span>
-              <select value={constructionOverride ?? draft.construction.type} onChange={(e) => setConstructionOverride(e.target.value as ConstructionType)}>
+              <select value={constructionOverride ?? draft.construction.type} onChange={(e) => { markDirty(); setConstructionOverride(e.target.value as ConstructionType) }}>
                 {(['unknown', 'flat_drop_shoulder', 'flat_set_in', 'flat_raglan', 'top_down_raglan', 'top_down_yoke', 'bottom_up_yoke', 'top_down_set_in', 'flat_saddle', 'top_down_saddle', 'dolman_kimono'] as ConstructionType[]).map((x) => <option key={x} value={x}>{x.replaceAll('_', ' ')}</option>)}
               </select>
             </label>
             <label className="field">
               <span>Direction</span>
-              <select value={directionOverride ?? draft.construction.direction} onChange={(e) => setDirectionOverride(e.target.value as 'top_down' | 'bottom_up')}>
+              <select value={directionOverride ?? draft.construction.direction} onChange={(e) => { markDirty(); setDirectionOverride(e.target.value as 'top_down' | 'bottom_up') }}>
                 <option value="top_down">Top down</option><option value="bottom_up">Bottom up</option>
               </select>
             </label>
             <label className="field">
               <span>Working method</span>
-              <select value={methodOverride ?? (draft.construction.working[0]?.method ?? draft.gauge[0]?.worked ?? 'unknown')} onChange={(e) => setMethodOverride(e.target.value as WorkingMethod)}>
+              <select value={methodOverride ?? (draft.construction.working[0]?.method ?? draft.gauge[0]?.worked ?? 'unknown')} onChange={(e) => { markDirty(); setMethodOverride(e.target.value as WorkingMethod) }}>
                 <option value="unknown">Unknown — review source</option><option value="flat">Flat</option><option value="in_the_round">In the round</option>
               </select>
             </label>
@@ -830,6 +940,15 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
         <div className="row">
           <button disabled={!name.trim() || reviewInputs.errors.length > 0} onClick={() => save('draft')}>Save as draft</button>
           <button className="primary" disabled={!name.trim() || errCount > 0 || unknownReviewFields.length > 0 || reviewInputs.errors.length > 0} onClick={() => save('accepted')}>Accept pattern</button>
+          {draftDirty && <button onClick={() => {
+            llmRun.current += 1
+            sourceRun.current += 1
+            setBusy(false)
+            setProgress('')
+            clearSessionDraft(draftKey)
+            setDraftDirty(false)
+            go({ name: 'library' })
+          }}>Discard unsaved changes</button>}
         </div>
         {error && <div className="panel err">{error}</div>}
       </section>

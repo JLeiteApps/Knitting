@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { applyIntent, capabilityFor } from '@knitting/engine'
+import { useEffect, useRef, useState } from 'react'
+import { applyIntent, capabilityFor, cmToIn, inToCm } from '@knitting/engine'
 import { fmtLen, fromCanonicalInches, toCanonicalInches } from '../units'
 import type { FitProfile, Intent, ModificationRequest } from '@knitting/shared'
 import { INTENT_BACKING, INTENT_LABELS, INTENT_ORDER, missingSlots } from '../intents'
@@ -8,6 +8,7 @@ import { classifyViaApi, summarizePattern } from '../classify'
 import { getLlmKey } from '../api'
 import { newId } from '../store'
 import type { ScreenProps } from '../App'
+import { clearSessionDraft, readSessionDraft, writeSessionDraft } from '../sessionDrafts'
 
 function defaultParams(intent: Intent): ModificationRequest['params'] {
   switch (intent) {
@@ -16,11 +17,11 @@ function defaultParams(intent: Intent): ModificationRequest['params'] {
     case 'bust_accommodation':
       return { kind: 'bust', method: 'auto', tightness: 'average' }
     case 'body_length_change':
-      return { kind: 'body_length', deltaIn: 2 }
+      return { kind: 'body_length', deltaIn: NaN }
     case 'sleeve_length_change':
-      return { kind: 'sleeve_length', deltaIn: 2 }
+      return { kind: 'sleeve_length', deltaIn: NaN }
     case 'gauge_conversion':
-      return { kind: 'gauge', userStsPerIn: 5 }
+      return { kind: 'gauge', userStsPerIn: NaN }
     case 'waist_shape_reposition':
       return { kind: 'waist_reposition', deltaIn: NaN, landmarkIn: NaN }
     case 'hip_width_change':
@@ -36,27 +37,62 @@ function defaultParams(intent: Intent): ModificationRequest['params'] {
 
 const NO_PROFILE: FitProfile = { id: 'none', label: '(no profile)', displayUnit: 'in' }
 
+interface GaugeEntry {
+  stitches: string
+  rows: string
+  span: string
+  unit: 'in' | 'cm'
+}
+
+interface RequestDraft {
+  raw: string
+  intent: Intent
+  params: ModificationRequest['params']
+  notes: string[]
+  llmOffer: string[] | null
+  sizeIndex: number
+  profileId: string
+  gauge: GaugeEntry
+}
+
+const emptyGauge = (): GaugeEntry => ({ stitches: '', rows: '', span: '', unit: 'in' })
+
 export default function NewModification({
   store,
   patternId,
   go,
 }: ScreenProps & { patternId: string }) {
-  const pattern = store.patterns.find((p) => p.meta.name === patternId) ?? store.patterns[0]
-  const [raw, setRaw] = useState('')
-  const [intent, setIntent] = useState<Intent>('size_ease_selection')
-  const [params, setParams] = useState<ModificationRequest['params']>(defaultParams('size_ease_selection'))
-  const [notes, setNotes] = useState<string[]>([])
+  const pattern = store.patterns.find((p) => p.meta.name === patternId)
+  const draftKey = `newmod:${patternId}`
+  const restored = readSessionDraft<RequestDraft>(draftKey)
+  const [raw, setRaw] = useState(restored?.raw ?? '')
+  const [intent, setIntent] = useState<Intent>(restored?.intent ?? 'size_ease_selection')
+  const [params, setParams] = useState<ModificationRequest['params']>(restored?.params ?? defaultParams('size_ease_selection'))
+  const [notes, setNotes] = useState<string[]>(restored?.notes ?? [])
   /** When the deterministic grammar is not 100% sure: reasons + the LLM offer. */
-  const [llmOffer, setLlmOffer] = useState<string[] | null>(null)
-  const [sizeIndex, setSizeIndex] = useState(0)
-  const [profileId, setProfileId] = useState(store.profiles[0]?.id ?? '')
+  const [llmOffer, setLlmOffer] = useState<string[] | null>(restored?.llmOffer ?? null)
+  const [sizeIndex, setSizeIndex] = useState(restored?.sizeIndex ?? 0)
+  const [profileId, setProfileId] = useState(restored?.profileId ?? store.activeProfileId ?? '')
+  const [gauge, setGauge] = useState<GaugeEntry>(restored?.gauge ?? emptyGauge())
   const [error, setError] = useState('')
   const [drafting, setDrafting] = useState(false)
+  const [draftDirty, setDraftDirty] = useState(Boolean(restored))
+  const inputRevision = useRef(0)
+  const llmRun = useRef(0)
+  const markDirty = () => { inputRevision.current += 1; setDraftDirty(true); setDrafting(false) }
+
+  useEffect(() => () => { llmRun.current += 1 }, [])
+
+  useEffect(() => {
+    if (!draftDirty) return
+    writeSessionDraft(draftKey, { raw, intent, params, notes, llmOffer, sizeIndex, profileId, gauge })
+  }, [draftKey, draftDirty, gauge, intent, llmOffer, notes, params, profileId, raw, sizeIndex])
 
   if (!pattern) {
     return (
       <section className="card">
         <h2>New modification</h2>
+        {draftDirty && <p className="note">Unsaved request changes are kept only while this browser tab stays open.</p>}
         <p className="muted">No pattern selected — add one first.</p>
         <button className="primary" onClick={() => go({ name: 'add' })}>
           Add pattern
@@ -67,21 +103,32 @@ export default function NewModification({
 
   const profile = store.profiles.find((p) => p.id === profileId)
   const missing = missingSlots(intent, params, profile)
+  const selectionError = !Number.isInteger(sizeIndex) || sizeIndex < 0 || sizeIndex >= pattern.sizing.labels.length
+    ? 'The selected size is no longer available for this pattern.'
+    : profileId && !profile
+      ? 'The selected fit profile is no longer available. Choose another profile or select none.'
+      : ''
   const backing = INTENT_BACKING[intent]
   const capability = capabilityFor(intent, pattern.construction.type)
 
   /** Deterministic first — no LLM involved unless the user accepts the offer. */
   const draft = () => {
+    markDirty()
     setError('')
     setLlmOffer(null)
     const d = classifyDeterministic(raw)
     if (!d) {
       setNotes(['No intent recognized from the text — pick one below and set its parameters.'])
-      setLlmOffer(['Nothing in the text mapped to the five supported modifications.'])
+      setLlmOffer(['Nothing in the text mapped to an available modification path.'])
       return
     }
     setIntent(d.intent)
     setParams(d.params)
+    if (d.params.kind === 'gauge') {
+      setGauge(Number.isFinite(d.params.userStsPerIn)
+        ? { stitches: String(d.params.userStsPerIn), rows: d.params.userRowsPerIn === undefined ? '' : String(d.params.userRowsPerIn), span: '1', unit: 'in' }
+        : emptyGauge())
+    }
     const nextNotes = [...d.notes]
     if (d.confidence === 'exact') {
       nextNotes.push('Understood by the deterministic grammar — no LLM used. Review and run.')
@@ -92,13 +139,21 @@ export default function NewModification({
 
   /** Optional LLM pass — the user chose "let the LLM try" on the offer panel. */
   const draftWithLlm = async () => {
+    const startRevision = inputRevision.current
+    const runId = ++llmRun.current
     setError('')
     setDrafting(true)
     try {
       const result = await classifyViaApi(raw, summarizePattern(pattern))
+      if (runId !== llmRun.current || startRevision !== inputRevision.current) return
       if (result.status === 'ok') {
         setIntent(result.intent)
         setParams(result.params)
+        if (result.params.kind === 'gauge') {
+          setGauge(Number.isFinite(result.params.userStsPerIn)
+            ? { stitches: String(result.params.userStsPerIn), rows: result.params.userRowsPerIn === undefined ? '' : String(result.params.userRowsPerIn), span: '1', unit: 'in' }
+            : emptyGauge())
+        }
         const nextNotes: string[] = []
         if (result.clarifyingQuestion) nextNotes.push(result.clarifyingQuestion)
         for (const slot of result.missingSlots) nextNotes.push(`Still needed: ${slot}`)
@@ -109,7 +164,7 @@ export default function NewModification({
       }
       if (result.status === 'unsupported') {
         setNotes([
-          result.clarifyingQuestion ?? 'That request is outside the five supported modifications for now.',
+          result.clarifyingQuestion ?? 'That request is outside the available modification paths for now.',
           'Pick the closest intent below and adjust its parameters, or rephrase.',
         ])
         setLlmOffer(null)
@@ -123,21 +178,61 @@ export default function NewModification({
       setLlmOffer(null)
       setNotes((ns) => [...ns, reason])
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      if (runId === llmRun.current && startRevision === inputRevision.current) {
+        setError(e instanceof Error ? e.message : String(e))
+      }
     } finally {
-      setDrafting(false)
+      if (runId === llmRun.current) setDrafting(false)
     }
   }
 
   const pickIntent = (next: Intent) => {
+    markDirty()
     setIntent(next)
     setParams(defaultParams(next))
     setNotes([])
     setLlmOffer(null)
+    setGauge(emptyGauge())
+    setDrafting(false)
+  }
+
+  const updateGauge = (next: GaugeEntry) => {
+    markDirty()
+    setGauge(next)
+    const stitches = next.stitches.trim() === '' ? null : Number(next.stitches)
+    const span = next.span.trim() === '' ? null : Number(next.span)
+    const rows = next.rows.trim() === '' ? null : Number(next.rows)
+    const overIn = span !== null && Number.isFinite(span) && span > 0 ? (next.unit === 'cm' ? cmToIn(span) : span) : NaN
+    const validStitches = stitches !== null && Number.isFinite(stitches) && stitches > 0
+    const validRows = rows === null || Number.isFinite(rows) && rows > 0
+    const complete = validStitches && validRows && Number.isFinite(overIn) && overIn > 0
+    setParams({ kind: 'gauge', userStsPerIn: complete ? stitches / overIn : NaN,
+      ...(complete && rows !== null ? { userRowsPerIn: rows / overIn } : {}) })
+  }
+
+  const discard = () => {
+    llmRun.current += 1
+    inputRevision.current += 1
+    setRaw('')
+    setIntent('size_ease_selection')
+    setParams(defaultParams('size_ease_selection'))
+    setNotes([])
+    setLlmOffer(null)
+    setSizeIndex(0)
+    setProfileId(store.activeProfileId ?? '')
+    setGauge(emptyGauge())
+    setDrafting(false)
+    setError('')
+    setDraftDirty(false)
+    clearSessionDraft(draftKey)
   }
 
   const confirm = () => {
     setError('')
+    if (selectionError || missing.length > 0) {
+      setError(selectionError || 'Complete the required inputs before running this modification.')
+      return
+    }
     const id = newId()
     try {
       const request: ModificationRequest = {
@@ -177,7 +272,7 @@ export default function NewModification({
         <div className="form-grid">
           <label className="field">
             <span>Size to knit</span>
-            <select value={sizeIndex} onChange={(e) => setSizeIndex(Number(e.target.value))}>
+            <select value={sizeIndex} onChange={(e) => { markDirty(); setSizeIndex(Number(e.target.value)) }}>
               {pattern.sizing.labels.map((l, i) => (
                 <option key={i} value={i}>
                   {l}
@@ -191,6 +286,7 @@ export default function NewModification({
             <select
               value={profileId}
               onChange={(e) => {
+                markDirty()
                 setProfileId(e.target.value)
                 store.actions.setActiveProfile(e.target.value || null)
               }}
@@ -209,7 +305,7 @@ export default function NewModification({
           <textarea
             rows={3}
             value={raw}
-            onChange={(e) => setRaw(e.target.value)}
+            onChange={(e) => { markDirty(); setRaw(e.target.value) }}
             placeholder='e.g. "make this about 2 inches longer in the body" or "convert to my gauge, 22 sts over 4 inches"'
           />
         </label>
@@ -247,7 +343,7 @@ export default function NewModification({
                   <span>Measure by</span>
                   <select
                     value={params.basis}
-                    onChange={(e) => setParams({ ...params, basis: e.target.value as 'upper_torso' | 'bust' })}
+                    onChange={(e) => { markDirty(); setParams({ ...params, basis: e.target.value as 'upper_torso' | 'bust' }) }}
                   >
                     <option value="upper_torso">Upper torso (Herzog)</option>
                     <option value="bust">Full bust</option>
@@ -257,12 +353,12 @@ export default function NewModification({
                   <span>Ease tier</span>
                   <select
                     value={params.tier}
-                    onChange={(e) =>
-                      setParams({
+                    onChange={(e) => {
+                      markDirty(); setParams({
                         ...params,
                         tier: e.target.value as 'fitted' | 'average' | 'oversized',
                       })
-                    }
+                    }}
                   >
                     <option value="fitted">Fitted</option>
                     <option value="average">Average</option>
@@ -275,15 +371,15 @@ export default function NewModification({
                     type="number"
                     step="0.5"
                     value={params.targetEaseIn === undefined ? '' : fromCanonicalInches(params.targetEaseIn, store.displayUnit)}
-                    onChange={(e) =>
-                      setParams({
+                    onChange={(e) => {
+                      markDirty(); setParams({
                         ...params,
                         targetEaseIn:
                           e.target.value === ''
                             ? undefined
                             : toCanonicalInches(Number(e.target.value), store.displayUnit),
                       })
-                    }
+                    }}
                   />
                 </label>
               </>
@@ -294,9 +390,7 @@ export default function NewModification({
                   <span>Method</span>
                   <select
                     value={params.method}
-                    onChange={(e) =>
-                      setParams({ ...params, method: e.target.value as typeof params.method })
-                    }
+                    onChange={(e) => { markDirty(); setParams({ ...params, method: e.target.value as typeof params.method }) }}
                   >
                     <option value="auto">Auto (by stitch texture)</option>
                     <option value="vertical_darts">Vertical darts</option>
@@ -307,9 +401,7 @@ export default function NewModification({
                   <span>Tightness</span>
                   <select
                     value={params.tightness}
-                    onChange={(e) =>
-                      setParams({ ...params, tightness: e.target.value as typeof params.tightness })
-                    }
+                    onChange={(e) => { markDirty(); setParams({ ...params, tightness: e.target.value as typeof params.tightness }) }}
                   >
                     <option value="tight">Tight</option>
                     <option value="average">Average</option>
@@ -326,13 +418,13 @@ export default function NewModification({
                 <input
                   type="number"
                   step="0.5"
-                  value={fromCanonicalInches(params.deltaIn, store.displayUnit)}
+                  value={Number.isFinite(params.deltaIn) ? fromCanonicalInches(params.deltaIn, store.displayUnit) : ''}
                   onChange={(e) =>
-                    setParams({
+                    { markDirty(); setParams({
                       ...params,
                       deltaIn:
-                        e.target.value === '' ? 0 : toCanonicalInches(Number(e.target.value), store.displayUnit),
-                    } as typeof params)
+                        e.target.value === '' ? NaN : toCanonicalInches(Number(e.target.value), store.displayUnit),
+                    } as typeof params) }
                   }
                 />
               </label>
@@ -346,7 +438,7 @@ export default function NewModification({
                   type="number"
                   step="0.5"
                   value={Number.isFinite(params.deltaIn) ? fromCanonicalInches(params.deltaIn, store.displayUnit) : ''}
-                  onChange={(e) => setParams({ ...params, deltaIn: e.target.value === '' ? NaN : toCanonicalInches(Number(e.target.value), store.displayUnit) } as typeof params)}
+                  onChange={(e) => { markDirty(); setParams({ ...params, deltaIn: e.target.value === '' ? NaN : toCanonicalInches(Number(e.target.value), store.displayUnit) } as typeof params) }}
                 />
               </label>
             )}
@@ -358,39 +450,51 @@ export default function NewModification({
                   min="0.1"
                   step="0.5"
                   value={Number.isFinite(params.landmarkIn) ? fromCanonicalInches(params.landmarkIn, store.displayUnit) : ''}
-                  onChange={(e) => setParams({ ...params, landmarkIn: e.target.value === '' ? NaN : toCanonicalInches(Number(e.target.value), store.displayUnit) })}
+                  onChange={(e) => { markDirty(); setParams({ ...params, landmarkIn: e.target.value === '' ? NaN : toCanonicalInches(Number(e.target.value), store.displayUnit) }) }}
                 />
               </label>
             )}
             {params.kind === 'gauge' && (
               <>
                 <label className="field">
-                  <span>Your stitch gauge (sts per inch)</span>
+                  <span>Stitches measured</span>
                   <input
                     type="number"
                     step="0.25"
-                    min="1"
-                    value={params.userStsPerIn}
-                    onChange={(e) =>
-                      setParams({ ...params, userStsPerIn: Number(e.target.value) } as typeof params)
-                    }
+                    min="0"
+                    value={gauge.stitches}
+                    onChange={(e) => updateGauge({ ...gauge, stitches: e.target.value })}
                   />
                 </label>
                 <label className="field">
-                  <span>Your row gauge (rows per inch, optional)</span>
+                  <span>Rows measured (optional)</span>
                   <input
                     type="number"
                     step="0.25"
-                    min="1"
-                    value={params.userRowsPerIn ?? ''}
-                    onChange={(e) =>
-                      setParams({
-                        ...params,
-                        userRowsPerIn: e.target.value === '' ? undefined : Number(e.target.value),
-                      } as typeof params)
-                    }
+                    min="0"
+                    value={gauge.rows}
+                    onChange={(e) => updateGauge({ ...gauge, rows: e.target.value })}
                   />
                 </label>
+                <label className="field">
+                  <span>Measured span</span>
+                  <input type="number" step="0.1" min="0" value={gauge.span} onChange={(e) => updateGauge({ ...gauge, span: e.target.value })} />
+                </label>
+                <label className="field">
+                  <span>Span unit</span>
+                  <select value={gauge.unit} onChange={(e) => {
+                    const unit = e.target.value as 'in' | 'cm'
+                    const current = Number(gauge.span)
+                    const span = gauge.span.trim() === '' || !Number.isFinite(current) ? gauge.span : String(unit === 'cm' ? inToCm(gauge.unit === 'cm' ? cmToIn(current) : current) : gauge.unit === 'cm' ? cmToIn(current) : current)
+                    updateGauge({ ...gauge, unit, span })
+                  }}>
+                    <option value="in">Inches</option>
+                    <option value="cm">Centimeters</option>
+                  </select>
+                </label>
+                {Number.isFinite(params.userStsPerIn) && (
+                  <p className="note">Normalized gauge: {params.userStsPerIn} sts/in{params.userRowsPerIn === undefined ? '' : ` · ${params.userRowsPerIn} rows/in`}.</p>
+                )}
               </>
             )}
           </div>
@@ -444,10 +548,12 @@ export default function NewModification({
             Required: {capability.requiredMeasurements.join('; ') || 'none listed'}.
           </div>
           {error && <div className="panel err">{error}</div>}
+          {selectionError && <div className="panel err">{selectionError}</div>}
           <div className="row">
-            <button className="primary" disabled={missing.length > 0} onClick={confirm}>
+            <button className="primary" disabled={missing.length > 0 || Boolean(selectionError)} onClick={confirm}>
               Run modification
             </button>
+            {draftDirty && <button onClick={discard}>Discard unsaved request</button>}
           </div>
         </div>
       </section>
