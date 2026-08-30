@@ -46,6 +46,7 @@ export type ConstructionType =
   | 'kangaroo_cut_armhole'
   | 'top_down_raglan'
   | 'top_down_yoke'
+  | 'bottom_up_yoke'
   | 'top_down_set_in'
   | 'contiguous_simultaneous_set_in'
   | 'top_down_saddle'

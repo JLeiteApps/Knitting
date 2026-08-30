@@ -17,13 +17,18 @@ engine).
 | Case | Pattern | Intent | Status |
 |---|---|---|---|
 | `flax-like/` | engine fixture `flaxLike()` (3-size top-down raglan, Σ-clean) | body length +2" · gauge conversion 4.5→5 sts/in · bust accommodation (vertical darts) | expectations hand-computed, wired to `app/packages/engine/test/golden.acceptance.test.ts` |
-| `flax-worsted/` | **TCK Flax worsted** (real PDF, 19 sizes; IR subset S/M/L/XL hand-derived) | notation-layer F0 · body length +2" (F2) · gauge conversion 4.5→5 expected §6 BLOCK (F3) · bust darts (F4) | hand-derived from PDF text w/ page cites; wired to `app/packages/engine/test/golden.flax.test.ts`; found+fixed 3 parser lexicon gaps (rounds/slash gauge, sizing headers, finished-garment basis) |
+| `flax-worsted/` | **TCK Flax worsted** (real PDF, 19 sizes; IR subset S/M/L/XL hand-derived) | notation F0 · IR Σ-clean F1 · body length +2" (F2, incl. cm render) · gauge conversion 4.5→5 expected §6 BLOCK (F3) · bust darts (F4 + per-size F4b) · sleeve +2 re-rate (F5) · sleeve −2 compress (F6) | hand-derived from PDF text w/ page cites; wired to `app/packages/engine/test/golden.flax.test.ts`; found+fixed 3 parser lexicon gaps (rounds/slash gauge, sizing headers, finished-garment basis) + the `applySleeveLength` multi-size bug |
+| `flat-setin-like/` | hand-designed fixture `flatSetInLike()` (3-size flat set-in, Σ-exact at every size) | size/ease (FS1) · gauge 5→5.5 expected parity BLOCK (FS2) · cap-aware sleeve re-rate (FS3) · body length on flat back+front pair (FS4) | designed + hand-computed 2026-08-27; wired to `app/packages/engine/test/golden.flatsetin.test.ts`; surfaced then verified the family-awareness engine fixes (a2da226) |
+| `keith-moon-like/` | **Keith Moon** (Kate Davies *Yokes*, 2014; real book text layer, 10 sizes; IR subset 1/4/7/10 hand-derived) | IR Σ-clean (KM1) · body length on a shaped bottom-up body → plain tube only (KM2) · gauge 4.5→5 expected §6 BLOCK residue 2/step 4 (KM3) · bust darts (KM4) · bottom-up inc-taper sleeve compress every 5×1+6×10 (KM5) · size/ease w/ bust advisory (KM6) | hand-derived 2026-08-30 from `extracted/yokes_extracted.md` w/ page cites; wired to `app/packages/engine/test/golden.keithmoon.test.ts`; THIRD MVP FAMILY (bottom-up circular yoke, KB §21) — the MVP construction triangle is complete |
 
 ## Real-PDF patterns
 - [x] **TCK Flax worsted** (user-downloaded 2026-08-24) → `flax-worsted/`.
-- [ ] 1–2 more constructions: a top-down YOKE and a FLAT SET-IN free pattern
-      would cover the remaining MVP families (any free multi-size PDF works;
-      TCK downloads need a normal browser — the SPA gates bots).
+- [x] Flat set-in family covered by the synthetic `flat-setin-like/` fixture
+      (2026-08-27); a real flat-set-in PDF would still be a welcome cross-check.
+- [x] **Yoke family covered 2026-08-30** by Keith Moon (real book, clean text
+      layer — read without any OCR). The original "top-down yoke PDF" ask is
+      closed in spirit (bottom-up yoke); a genuinely top-down yoke PDF remains
+      an optional future cross-check.
   Then per pattern: probe text layer → parse (web AddPattern or notation
   layer) → hand-verify → expectations file + acceptance test.
 

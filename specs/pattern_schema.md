@@ -105,6 +105,7 @@ cardigan bust = back + 2×front + band). Field `basis: "total"|"incremental"` pe
 |---|---|---|---|
 | `flat_drop_shoulder` | §4, §13.7 | `top_down_raglan` | §13.5, §15.2, §16.1 |
 | `flat_set_in` | §13.4, §13.9a | `top_down_yoke` | §14.2, §16.1 |
+| `bottom_up_yoke` | §21 (Davies; added 2026-08-30 w/ the Keith Moon golden case) | | |
 | `flat_raglan` | §13.5 | `top_down_set_in` | §15.3 |
 | `flat_saddle` | §14.4 | `contiguous_simultaneous_set_in` | §15.4 |
 | `steeked_cardigan` | §13.9b, §14.7, §16.2 | `top_down_saddle` | §15.5 |
