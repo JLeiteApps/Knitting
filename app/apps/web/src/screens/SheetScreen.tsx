@@ -22,18 +22,18 @@ export default function SheetScreen({
 
   const { sheet, validation } = result
 
-  const exportJson = () => {
-    const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `modification-sheet-${sheet.intent}-${result.id}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
   return (
     <>
+      {/* Standalone header on paper: the printed sheet must identify itself. */}
+      <header className="print-header print-only">
+        <strong>Knit Adapt — modification sheet</strong>
+        <span>
+          {INTENT_LABELS[sheet.intent]} · {result.patternName} · size {result.sizeLabel} ·{' '}
+          {new Date(sheet.createdAt).toLocaleDateString()} ·{' '}
+          {validation.pass ? 'verified (all checks passed)' : 'BLOCKED — validation failed'}
+        </span>
+      </header>
+
       <section className="card no-print">
         <div className="card-head">
           <h2>Modification sheet</h2>
@@ -45,8 +45,9 @@ export default function SheetScreen({
         </p>
         {result.raw && <p className="muted small">Request: “{result.raw}”</p>}
         <div className="row">
-          <button onClick={() => window.print()}>Print</button>
-          <button onClick={exportJson}>Export JSON</button>
+          <button className="primary" onClick={() => window.print()}>
+            Print / Save as PDF
+          </button>
         </div>
       </section>
 
@@ -61,10 +62,29 @@ export default function SheetScreen({
           </div>
         ) : (
           <div className="panel err">
-            FAILED — the sheet is BLOCKED (app plan §2): fix the diagnostics below before knitting.
+            FAILED — the sheet is BLOCKED: fix the diagnostics below before knitting.
             Steps are withheld until the modified pattern recomputes cleanly.
           </div>
         )}
+
+        <details className="about-checks no-print">
+          <summary>What these checks mean</summary>
+          <ul>
+            <li>
+              <strong>Σ-checks</strong> (“Σ” is math shorthand for a sum): knitting instructions are
+              a chain of stitch counts — cast on, increases and decreases, bind off. A Σ-check
+              re-adds each section of that chain and requires it to land on the next count
+              <em> exactly</em>. If the counts don’t reconcile, the instructions are wrong, so the
+              sheet won’t render.
+            </li>
+            <li>
+              <strong>Schematic recompute (drift)</strong>: the modified garment’s measurements are
+              recomputed from the new stitch counts and compared with what you asked for. Anything
+              off by more than {fmtLen(0.25, store.displayUnit)} is flagged — small rounding in
+              knitting is normal, silent drift is not.
+            </li>
+          </ul>
+        </details>
 
         {validation.dimensionChecks.length > 0 && (
           <>

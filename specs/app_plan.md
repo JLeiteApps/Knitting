@@ -32,12 +32,13 @@ knowledge pipeline (gitignored: copyrighted/regenerable). **Git + .gitignore** e
 - **Mobile-ready day 1**: responsive ≥360px, ≥44px touch targets, no hover-only UI, print
   stylesheet, Workbox offline, installable PWA.
 
-## 3. Spec order (Phase 4)
+## 3. Spec order (Phase 4 — COMPLETE)
 1. ✅ `pattern_schema.md` v0.1 · 2. ✅ `parser_grammar.md` v0.1 · 3. ✅ `intent_grammar.md` v0.1
 4. ✅ `engine_functions.md` (2026-08-27 — codifies the implemented engine incl. family-aware
    routes, §6 rebalancer + parity note, units) ·
-5. ✅ `validation_loop.md` (2026-08-27 — two-tier gate, §13.8 recompute, golden criteria) —
-   `app_ux.md` remains (screens already shipped; doc is descriptive polish).
+5. ✅ `validation_loop.md` (2026-08-27 — two-tier gate, §13.8 recompute, golden criteria) ·
+6. ✅ `app_ux.md` (2026-08-27 — descriptive spec of the shipped screens; updated 2026-08-28
+   for the classifier-first Draft flow).
 
 ## 4. Engine data tables (KB → typed data)
 CYC tables (§2 verified) · Budd ladders · ease tiers (VK bust + Herzog upper-torso) · EPS % ·
@@ -55,11 +56,15 @@ Library · Add pattern (parse review w/ confidence + Σ panel) · Fit profile wi
 protocol; favorite-garment path) · New modification (NL → intent card → show-the-math) ·
 Modification sheet (diff steps, warnings, print/export) · Validation report (drift table, Σ list).
 
-## 7. Milestones
-M0 workspaces+git+lint · M1 specs 1–5 (+ machine-readable schema) · M2 schema+engine core w/
-tests (property tests on Σ invariants) + golden set · M3 parser + /api + parse-review UI ·
-M4 end-to-end flows · M5 PWA hardening + beta · M6 Capacitor (Android first; keys stay
-server-side, out of the binary).
+## 7. Milestones (status 2026-08-28)
+M0 ✅ workspaces+git+lint · M1 ✅ all specs · M2 ✅ schema+engine+shared+parser w/ tests ·
+M3 ✅ parser + BYOK /api relays + parse-review UI (real PDFs save complete Σ-validated IR) ·
+M4 ✅ end-to-end flows browser-smoked at 360px · M5 ✅ PWA hardening (Dexie, manifest, SW;
+2026-08-27) + ✅ security program (jailed PDF worker, secretless relays, CSP, audit gate) +
+✅ LLM intent classifier (2026-08-28) + ✅ UX/professionalism pass + backup/restore
+(2026-08-28 later: two-tap deletes, toasts, history/back-button, plain-language diagnostics,
+PDF-first sheet save, versioned backup+restore; suite 155/155) · M6 ⬜ Capacitor (Android
+first; BYOK keeps keys out of the binary).
 
 ## 8. Testing & QA
 Unit per function; property tests (Σ, interval splits); golden acceptance = exact match +

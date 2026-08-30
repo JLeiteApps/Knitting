@@ -3,6 +3,7 @@ import type { Pattern } from '@knitting/schema'
 import type { FitProfile, ModificationSheet, ValidationReport } from '@knitting/shared'
 import { flaxLike } from '@knitting/engine'
 import type { DisplayUnit } from './units'
+import { mergeBackup, type BackupFile } from './backup'
 import { loadAll, saveAll } from './storage'
 import { openVault, sealVault, type VaultEnvelope } from './vault'
 
@@ -136,6 +137,15 @@ export function useStore() {
     setState((s) => ({ ...s, results: [result, ...s.results].slice(0, 50) }))
   }, [])
 
+  const removeResult = useCallback((id: string) => {
+    setState((s) => ({ ...s, results: s.results.filter((r) => r.id !== id) }))
+  }, [])
+
+  /** Restore a backup file (merge semantics in backup.ts mergeBackup). */
+  const restoreBackup = useCallback((file: BackupFile) => {
+    setState((s) => ({ ...s, ...mergeBackup(s, file).next }))
+  }, [])
+
   /** Header toggle: sets the UI unit and sticks it on the active profile. */
   const setDisplayUnit = useCallback((unit: DisplayUnit) => {
     setState((s) => ({
@@ -184,6 +194,8 @@ export function useStore() {
       saveProfile,
       removeProfile,
       addResult,
+      removeResult,
+      restoreBackup,
       setDisplayUnit,
       setActiveProfile,
       setPatternUnit,
@@ -196,6 +208,8 @@ export function useStore() {
       saveProfile,
       removeProfile,
       addResult,
+      removeResult,
+      restoreBackup,
       setDisplayUnit,
       setActiveProfile,
       setPatternUnit,

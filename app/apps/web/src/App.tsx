@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStore } from './store'
+import { ToastHost } from './toast'
 import Library from './screens/Library'
 import AddPattern from './screens/AddPattern'
 import FitProfile from './screens/FitProfile'
@@ -18,10 +19,57 @@ export interface ScreenProps {
   go: (route: Route) => void
 }
 
+/** Browser/Android back button walks the app's screens (PWA-friendly). */
+function routeFromHistory(state: unknown): Route {
+  const r = (state as { route?: Route } | null)?.route
+  return r?.name ? r : { name: 'library' }
+}
+
 export default function App() {
   const store = useStore()
   const [route, setRoute] = useState<Route>({ name: 'library' })
-  const props: ScreenProps = { store, go: setRoute }
+  const mainRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    history.replaceState({ route: { name: 'library' } }, '')
+    const onPop = (e: PopStateEvent) => {
+      setRoute(routeFromHistory(e.state))
+      window.scrollTo(0, 0)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
+  const go = useCallback((next: Route) => {
+    setRoute(next)
+    history.pushState({ route: next }, '')
+    window.scrollTo(0, 0)
+    // Move focus to the screen content so keyboard/SR users land at the top
+    // of the new screen (programmatic focus stays invisible to sighted users).
+    mainRef.current?.focus({ preventScroll: true })
+  }, [])
+
+  useEffect(() => {
+    const base = 'Knit Adapt'
+    switch (route.name) {
+      case 'add':
+        document.title = `${base} — Add pattern`
+        break
+      case 'profile':
+        document.title = `${base} — Fit profile`
+        break
+      case 'newmod':
+        document.title = `${base} — modify ${route.patternId}`
+        break
+      case 'sheet':
+        document.title = `${base} — modification sheet`
+        break
+      default:
+        document.title = `${base} — Library`
+    }
+  }, [route])
+
+  const props: ScreenProps = { store, go }
 
   return (
     <div className="app">
@@ -51,19 +99,19 @@ export default function App() {
           <nav className="main-nav" aria-label="Main">
             <button
               className={route.name === 'library' ? 'nav-btn active' : 'nav-btn'}
-              onClick={() => setRoute({ name: 'library' })}
+              onClick={() => go({ name: 'library' })}
             >
               Library
             </button>
             <button
               className={route.name === 'profile' ? 'nav-btn active' : 'nav-btn'}
-              onClick={() => setRoute({ name: 'profile' })}
+              onClick={() => go({ name: 'profile' })}
             >
               Fit profile
             </button>
             <button
               className={route.name === 'add' ? 'nav-btn active' : 'nav-btn'}
-              onClick={() => setRoute({ name: 'add' })}
+              onClick={() => go({ name: 'add' })}
             >
               Add pattern
             </button>
@@ -71,7 +119,7 @@ export default function App() {
         </div>
       </header>
 
-      <main>
+      <main ref={mainRef} tabIndex={-1}>
         {route.name === 'library' && <Library {...props} />}
         {route.name === 'add' && <AddPattern {...props} />}
         {route.name === 'profile' && <FitProfile {...props} />}
@@ -87,6 +135,8 @@ export default function App() {
           every Σ-check and schematic recompute pass (drift &lt; 0.25&Prime;).
         </p>
       </footer>
+
+      <ToastHost />
     </div>
   )
 }

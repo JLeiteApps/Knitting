@@ -19,7 +19,8 @@ import {
 } from '@knitting/parser'
 import { pdfToText } from '../pdf'
 import { callExtractViaApi, getLlmKey, setLlmKey } from '../api'
-import { cmToIn } from '../units'
+import { cmToIn, fmtLen } from '../units'
+import { toast } from '../toast'
 import type { ScreenProps } from '../App'
 
 /**
@@ -83,6 +84,7 @@ export default function AddPattern({ store, go }: ScreenProps) {
   const [name, setName] = useState('')
   const [pdfName, setPdfName] = useState<string | null>(null)
   const [paste, setPaste] = useState('')
+  const [dragOver, setDragOver] = useState(false)
   const [llmSizing, setLlmSizing] = useState<LlmOutcome>({ status: 'idle', kept: [], dropped: [] })
   const [llmKey, setLlmKeyState] = useState(getLlmKey())
   const [llmGauge, setLlmGauge] = useState<LlmOutcome>({ status: 'idle', kept: [], dropped: [] })
@@ -254,11 +256,25 @@ export default function AddPattern({ store, go }: ScreenProps) {
 
   const diagnostics = useMemo(() => validatePattern(draft), [draft])
 
+  const primaryGauge = draft.gauge.find((g) => g.primary)
+  const errCount = diagnostics.filter((d) => d.level === 'error').length
+  const BASIS_TEXT: Record<string, string> = {
+    finished: 'finished garment',
+    to_fit: 'to fit body',
+    unknown: 'basis unclear',
+  }
+  const bustList = draft.sizing.bustOrChestIn
+  const range =
+    bustList.length > 1
+      ? ` — bust ${fmtLen(bustList[0]!, store.displayUnit)}–${fmtLen(bustList[bustList.length - 1]!, store.displayUnit)}`
+      : ''
+
   const save = () => {
     let unique = draft.meta.name
     let n = 2
     while (store.patterns.some((p) => p.meta.name === unique)) unique = `${draft.meta.name} (${n++})`
     store.actions.addPattern({ ...draft, meta: { ...draft.meta, name: unique } })
+    toast(`Saved “${unique}” to the library`)
     go({ name: 'library' })
   }
 
@@ -299,7 +315,25 @@ export default function AddPattern({ store, go }: ScreenProps) {
             Stored only on this device; sent per-request to the relay and never saved anywhere else.
           </small>
         </label>
-        <label className="file-drop">
+        <label
+          className={dragOver ? 'file-drop dragover' : 'file-drop'}
+          onDragOver={(e) => {
+            e.preventDefault()
+            setDragOver(true)
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault()
+            setDragOver(false)
+            const f = e.dataTransfer.files?.[0]
+            if (!f) return
+            if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') {
+              setError('That file is not a PDF — drop the pattern PDF itself (text can go in the paste box below).')
+              return
+            }
+            void handleFile(f)
+          }}
+        >
           <input
             type="file"
             accept="application/pdf"
@@ -308,7 +342,7 @@ export default function AddPattern({ store, go }: ScreenProps) {
               if (f) void handleFile(f)
             }}
           />
-          <span>{busy ? progress : 'Choose a pattern PDF…'}</span>
+          <span>{busy ? progress : dragOver ? 'Drop the PDF to parse it' : 'Choose a pattern PDF — or drop it here…'}</span>
         </label>
         <details className="paste-box">
           <summary>Or paste pattern text</summary>
@@ -380,6 +414,37 @@ export default function AddPattern({ store, go }: ScreenProps) {
           <span>Pattern name</span>
           <input value={name} onChange={(e) => setName(e.target.value)} />
         </label>
+
+        {/* Digest first, details below: what the parser understood, in one glance. */}
+        <div className="panel info parse-summary">
+          <div>
+            <span className="muted small">Gauge · </span>
+            {primaryGauge
+              ? `${primaryGauge.stsPerIn} sts/in${primaryGauge.rowsPerIn ? ` · ${primaryGauge.rowsPerIn} rows/in` : ' · row gauge unknown'}`
+              : 'not found — check the Gauge block'}
+          </div>
+          <div>
+            <span className="muted small">Sizes · </span>
+            {draft.sizing.sizeCount}
+            {range} ({BASIS_TEXT[draft.sizing.measurementBasis] ?? draft.sizing.measurementBasis})
+          </div>
+          <div>
+            <span className="muted small">Sections · </span>
+            {draft.sections.length > 0
+              ? `${draft.sections.length} built (${draft.sections.map((s) => s.id).join(', ')})`
+              : 'none — modifications will be advisory'}
+          </div>
+          <div>
+            <span className="muted small">Checks · </span>
+            {diagnostics.length === 0 ? (
+              <span className="chip ok">no problems found</span>
+            ) : (
+              `${errCount} error${errCount === 1 ? '' : 's'}, ${diagnostics.length - errCount} warning${
+                diagnostics.length - errCount === 1 ? '' : 's'
+              }`
+            )}
+          </div>
+        </div>
 
         {analysis.scannedPages.length > 0 && (
           <div className="panel warn">

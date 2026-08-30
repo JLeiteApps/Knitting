@@ -1,12 +1,9 @@
 import type { FitProfile, Intent, ModificationRequest } from '@knitting/shared'
-import { cmToIn } from '@knitting/parser'
 
 /**
- * Heuristic natural-language → ModificationRequest drafting for the shell.
- * PLACEHOLDER for the /api classifier (specs/intent_grammar.md §5): keyword
- * routing + simple number parsing only. The UI always shows an editable
- * intent card before anything reaches the engine — the engine computes,
- * never this file.
+ * Intent labels, card backing (intent grammar §6), and the slot-filling gate
+ * (§3). Natural-language drafting lives in nlGrammar.ts (deterministic) and
+ * classify.ts (optional LLM pass) — the engine computes, never these files.
  */
 
 export const INTENT_LABELS: Record<Intent, string> = {
@@ -36,123 +33,6 @@ export const INTENT_BACKING: Record<Intent, { engine: string; refs: string }> = 
   sleeve_length_change: { engine: 'taperSchedule', refs: 'KB §16.2' },
   gauge_conversion: { engine: 'convertCount · convertRows · §6 rebalance', refs: 'KB §2/§6; §17.2 drift policy' },
 };
-
-export interface IntentDraft {
-  intent: Intent
-  params: ModificationRequest['params']
-  /** Drafting notes shown on the intent card (heuristic caveats, [conv] flags). */
-  notes: string[]
-}
-
-const round2 = (x: number) => Math.round(x * 100) / 100
-
-function parseDeltaIn(raw: string): number | null {
-  const cm = raw.match(/(\d+(?:\.\d+)?)\s*cm\b/i)
-  if (cm) return round2(cmToIn(Number(cm[1])))
-  const inch = raw.match(/([+]?\d+(?:\.\d+)?)\s*(?:"|”|″|inch(?:es)?\b|\bin\b)/i)
-  if (inch) return Number(inch[1])
-  const bare = raw.match(/(\d+(?:\.\d+)?)/)
-  return bare ? Number(bare[1]) : null
-}
-
-function signed(raw: string, mag: number | null): number | null {
-  if (mag === null) return null
-  return /(shorter|less|smaller|tighter|crop|remove|take (up|in))/i.test(raw) ? -mag : mag
-}
-
-function parseGauge(raw: string): { stsPerIn: number | null; rowsPerIn: number | null } {
-  const stPerIn = raw.match(/(\d+(?:\.\d+)?)\s*(?:sts|stitches|st)\s*(?:\/|per)\s*(?:in|inch)/i)
-  const rowsPerIn = raw.match(/(\d+(?:\.\d+)?)\s*rows\s*(?:\/|per)\s*(?:in|inch)/i)
-  const overForm = raw.match(/(\d+)\s*(?:sts|stitches)\b[\s\S]{0,30}?(\d+(?:\.\d+)?)\s*(?:"|”|inch)/i)
-  if (stPerIn) {
-    return {
-      stsPerIn: Number(stPerIn[1]),
-      rowsPerIn: rowsPerIn ? Number(rowsPerIn[1]) : null,
-    }
-  }
-  if (overForm) {
-    return {
-      stsPerIn: round2(Number(overForm[1]) / Number(overForm[2])),
-      rowsPerIn: rowsPerIn ? Number(rowsPerIn[1]) : null,
-    }
-  }
-  return { stsPerIn: null, rowsPerIn: rowsPerIn ? Number(rowsPerIn[1]) : null }
-}
-
-export function draftIntent(raw: string): IntentDraft | null {
-  const text = raw.trim()
-  if (!text) return null
-
-  if (/\bgauge\b|\bswatch\b|sts\s*\/\s*in|stitches per inch|different (yarn|needle)|thinner|thicker|substitut/i.test(text)) {
-    const g = parseGauge(text)
-    return {
-      intent: 'gauge_conversion',
-      params: {
-        kind: 'gauge',
-        userStsPerIn: g.stsPerIn ?? 5,
-        ...(g.rowsPerIn ? { userRowsPerIn: g.rowsPerIn } : {}),
-      },
-      notes: [
-        g.stsPerIn === null
-          ? 'No stitch gauge found in the text — set your swatch gauge manually.'
-          : `Swatch gauge parsed from text: ${g.stsPerIn} sts/in.`,
-      ],
-    }
-  }
-
-  if (/\bsleeve|\bsleeves\b|\barm\b|\barms\b|bicep/i.test(text)) {
-    const delta = signed(text, parseDeltaIn(text))
-    return {
-      intent: 'sleeve_length_change',
-      params: { kind: 'sleeve_length', deltaIn: delta ?? 2 },
-      notes: [
-        delta === null
-          ? 'No length found — enter the change in inches (negative shortens).'
-          : `Delta parsed as ${delta}". Taper is re-rated, never dropped (KB §16.2).`,
-      ],
-    }
-  }
-
-  if (/\bbust\b|\bcup\b|\bdart/i.test(text)) {
-    const notes: string[] = []
-    if (/\bcup\b/i.test(text) && !/\b\d+\s*(?:"|inch)/i.test(text)) {
-      notes.push('Cup phrasing without measurements: the measurement path is preferred [Herzog §19]; the 1"-per-cup shortcut stays a [conv] fallback.')
-    }
-    return {
-      intent: 'bust_accommodation',
-      params: { kind: 'bust', method: 'auto', tightness: 'average' },
-      notes,
-    }
-  }
-
-  if (/longer|shorter|\blength\b|crop|tunic|hem\b/i.test(text)) {
-    const delta = signed(text, parseDeltaIn(text))
-    return {
-      intent: 'body_length_change',
-      params: { kind: 'body_length', deltaIn: delta ?? 2 },
-      notes: [
-        delta === null
-          ? 'No length found — enter the change in inches (negative shortens).'
-          : `Delta parsed as ${delta}". Plain-span change only: worked outside shaping (KB §11 hem rule).`,
-      ],
-    }
-  }
-
-  if (/size|ease|bigger|larger|smaller|roomier|oversized|slim|fitted|comfort|fit/i.test(text)) {
-    const tier = /fitted|slim|close/i.test(text)
-      ? 'fitted'
-      : /oversized|roomy|loose|baggy/i.test(text)
-        ? 'oversized'
-        : 'average'
-    return {
-      intent: 'size_ease_selection',
-      params: { kind: 'size_ease', basis: 'upper_torso', tier },
-      notes: ['Sizes by upper torso (Herzog §19.1) — the profile needs that measurement.'],
-    }
-  }
-
-  return null
-}
 
 /**
  * Slot-filling gate (intent grammar §3): required inputs that are still

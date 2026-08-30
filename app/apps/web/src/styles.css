@@ -542,6 +542,9 @@ pre.math {
 
   .main-nav .nav-btn {
     flex: 1;
+    font-size: 0.9rem;
+    padding: 8px 6px;
+    white-space: nowrap;
   }
 }
 
@@ -611,5 +614,150 @@ pre.math {
 
   .unit-toggle {
     justify-content: flex-end;
+  }
+}
+
+/* ---- UX polish additions (all class-based: CSP style-src 'self') ---- */
+
+/* transient feedback (aria-live host in App) */
+
+.toast-host {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  z-index: 40;
+  pointer-events: none;
+  width: min(92vw, 420px);
+}
+
+.toast {
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 14px rgba(43, 38, 32, 0.25);
+  animation: toast-in 180ms ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* two-tap destructive confirm */
+
+.confirm-armed {
+  background: var(--err);
+  color: #fff;
+}
+
+/* drag-and-drop affordance */
+
+.file-drop.dragover {
+  border-color: var(--accent);
+  background: var(--info-bg);
+}
+
+/* parse digest (AddPattern review) */
+
+.parse-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* collapsible explainers */
+
+.how-it-works,
+.about-checks {
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin: 8px 0;
+}
+
+.how-it-works summary,
+.about-checks summary {
+  cursor: pointer;
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.how-it-works ol {
+  margin: 6px 0;
+  padding-left: 22px;
+}
+
+.how-it-works li,
+.about-checks li {
+  margin: 6px 0;
+}
+
+.about-checks ul {
+  margin: 6px 0;
+  padding-left: 20px;
+  font-size: 0.88rem;
+}
+
+/* friendlier empty state */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.empty-state .note {
+  margin: 0;
+}
+
+/* print-only content (the sheet's standalone paper header) */
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  .print-only {
+    display: block;
+  }
+
+  .print-header {
+    border-bottom: 2px solid #000;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 0.9rem;
+  }
+}
+
+/* motion preferences */
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+
+  button:active {
+    transform: none;
   }
 }

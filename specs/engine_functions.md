@@ -1,8 +1,9 @@
 # SPEC — Engine Functions (v0.1)
 
-> Phase 4 deliverable 4 of 5. Codifies the IMPLEMENTED engine (`app/packages/engine`,
-> suite 119/119) so spec and code stay one artifact. KB refs are the grounding; the
-> golden cases in `tests/golden/**` are the acceptance contracts.
+> Phase 4 deliverable 4 of 5. Codifies the IMPLEMENTED engine (`app/packages/engine`;
+> suite 180/180 across the monorepo as of 2026-08-30) so spec and code stay one
+> artifact. KB refs are the grounding; the golden cases in `tests/golden/**` are
+> the acceptance contracts.
 
 ## 0. Principles
 - Pure TypeScript, no I/O. Same inputs → same outputs.

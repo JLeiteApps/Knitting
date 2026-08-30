@@ -107,13 +107,33 @@ estimate, clearly labeled unverified (KB §10.1 legacy note).
 (cut & reknit) · `pullover_to_cardigan` (steek route, §17.1 warnings) · `in_round_to_flat`
 & `flat_to_in_round` (§17.1) · `yarn_substitution` (§13.2) · `ease_change` (re-run 2.1).
 
-## 5. LLM contract (classifier)
+## 5. LLM contract (classifier) — IMPLEMENTED 2026-08-28
 
 Input: raw text + pattern summary (construction type, sections, sizeCount). Output JSON:
 `{ intent, params, missingSlots[], clarifyingQuestion? }`. Temperature 0; intent outside the
 supported set for the pattern's construction → `unsupported` + explanation; NEVER compute
 outputs, NEVER emit schedules — those are engine-only. Ambiguity between intents (e.g. "bigger"
 → frame vs cup) → ask the §11 disambiguation question (circumference vs cup volume).
+
+Shipped as `/api/classify` (BYOK relay, `app/apps/api/classify.mjs`) + client pre-state gate
+(`app/apps/web/src/classify.ts`): the LLM NEVER touches unit math or ranges — cm→in and
+over-span→per-inch conversions happen in code, and invalid/absent numbers become NaN so the
+deterministic slot gate asks instead of silently entering state (absent-not-trusted rule).
+Schedules/counts stay OUT of the prompt (summary sanitizer).
+
+### 5a. Deterministic implementation — DEFAULT PATH (2026-08-28, later)
+
+`classifyDeterministic` (`app/apps/web/src/nlGrammar.ts`) implements this contract as pure
+code — the LLM is now an OPTIONAL enhancer, never the default:
+- **Confidence is explicit**: `exact` only when the intent is unambiguous AND every parameter
+  came from the text (amount + longer/shorter direction, or a parseable gauge). Missing
+  amounts, missing direction, cup-only phrasing, bare volume words ("bigger" — the §11
+  frame-vs-cup question), or two changes in one request → `probable`/`unclear` with reasons.
+- **The UI asks, never guesses silently**: non-exact drafts render the best-guess card plus
+  the reasons and a "Let the LLM try" offer (BYOK key, per request); "Keep this draft"
+  declines. Unit math (cm→in, over-N-sts→per-inch) happens in the grammar, in code.
+- 15 unit tests (`nlGrammar.test.ts`) pin exact/probable/unclear routing; browser-verified
+  end-to-end: deterministic draft → engine → validated sheet with no LLM anywhere.
 
 ## 6. Confirmation card ("show the math")
 

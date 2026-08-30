@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import type { FitProfile } from '@knitting/shared'
 import { newId, useStore } from '../store'
-import { fromCanonicalInches, toCanonicalInches, type DisplayUnit } from '../units'
+import { fmtLen, fromCanonicalInches, toCanonicalInches, type DisplayUnit } from '../units'
+import { toast } from '../toast'
+import ConfirmButton from '../ConfirmButton'
 import type { ScreenProps } from '../App'
 
 type FieldKey =
@@ -169,6 +171,7 @@ export default function FitProfile({ store }: ScreenProps) {
     store.actions.setActiveProfile(profile.id)
     setEditingId(null)
     setForm(emptyForm(store.displayUnit))
+    toast(`Profile “${label}” saved`)
   }
 
   const switchUnit = (u: DisplayUnit) => {
@@ -212,19 +215,23 @@ export default function FitProfile({ store }: ScreenProps) {
               <div className="item-body">
                 <strong>{p.label}</strong>
                 <div className="muted small">
-                  {p.upperTorsoIn ? `upper torso ${p.upperTorsoIn}"` : 'upper torso —'}
+                  {p.upperTorsoIn ? `upper torso ${fmtLen(p.upperTorsoIn, store.displayUnit)}` : 'upper torso —'}
                   {' · '}
-                  {p.fullBustIn ? `full bust ${p.fullBustIn}"` : 'full bust —'}
+                  {p.fullBustIn ? `full bust ${fmtLen(p.fullBustIn, store.displayUnit)}` : 'full bust —'}
                   {p.frontHemToShoulderIn && p.backHemToShoulderIn
-                    ? ` · hem-to-shoulder ${p.frontHemToShoulderIn}" / ${p.backHemToShoulderIn}"`
+                    ? ` · hem-to-shoulder ${fmtLen(p.frontHemToShoulderIn, store.displayUnit)} / ${fmtLen(p.backHemToShoulderIn, store.displayUnit)}`
                     : ''}
                 </div>
               </div>
               <div className="item-actions">
                 <button onClick={() => edit(p)}>Edit</button>
-                <button className="danger" onClick={() => store.actions.removeProfile(p.id)}>
-                  Delete
-                </button>
+                <ConfirmButton
+                  label="Delete"
+                  onConfirm={() => {
+                    store.actions.removeProfile(p.id)
+                    toast(`Profile “${p.label}” deleted`)
+                  }}
+                />
               </div>
             </li>
           ))}

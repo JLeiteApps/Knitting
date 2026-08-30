@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { applyIntent } from '@knitting/engine'
 import { fmtLen, fromCanonicalInches, toCanonicalInches } from '../units'
 import type { FitProfile, Intent, ModificationRequest } from '@knitting/shared'
-import { INTENT_BACKING, INTENT_LABELS, INTENT_ORDER, draftIntent, missingSlots } from '../intents'
+import { INTENT_BACKING, INTENT_LABELS, INTENT_ORDER, missingSlots } from '../intents'
+import { classifyDeterministic } from '../nlGrammar'
 import { classifyViaApi, summarizePattern } from '../classify'
+import { getLlmKey } from '../api'
 import { newId } from '../store'
 import type { ScreenProps } from '../App'
 
@@ -34,6 +36,8 @@ export default function NewModification({
   const [intent, setIntent] = useState<Intent>('size_ease_selection')
   const [params, setParams] = useState<ModificationRequest['params']>(defaultParams('size_ease_selection'))
   const [notes, setNotes] = useState<string[]>([])
+  /** When the deterministic grammar is not 100% sure: reasons + the LLM offer. */
+  const [llmOffer, setLlmOffer] = useState<string[] | null>(null)
   const [sizeIndex, setSizeIndex] = useState(0)
   const [profileId, setProfileId] = useState(store.profiles[0]?.id ?? '')
   const [error, setError] = useState('')
@@ -55,7 +59,28 @@ export default function NewModification({
   const missing = missingSlots(intent, params, profile)
   const backing = INTENT_BACKING[intent]
 
-  const draft = async () => {
+  /** Deterministic first — no LLM involved unless the user accepts the offer. */
+  const draft = () => {
+    setError('')
+    setLlmOffer(null)
+    const d = classifyDeterministic(raw)
+    if (!d) {
+      setNotes(['No intent recognized from the text — pick one below and set its parameters.'])
+      setLlmOffer(['Nothing in the text mapped to the five supported modifications.'])
+      return
+    }
+    setIntent(d.intent)
+    setParams(d.params)
+    const nextNotes = [...d.notes]
+    if (d.confidence === 'exact') {
+      nextNotes.push('Understood by the deterministic grammar — no LLM used. Review and run.')
+    }
+    setNotes(nextNotes)
+    setLlmOffer(d.confidence === 'exact' ? null : d.reasons)
+  }
+
+  /** Optional LLM pass — the user chose "let the LLM try" on the offer panel. */
+  const draftWithLlm = async () => {
     setError('')
     setDrafting(true)
     try {
@@ -63,11 +88,12 @@ export default function NewModification({
       if (result.status === 'ok') {
         setIntent(result.intent)
         setParams(result.params)
-        const notes: string[] = []
-        if (result.clarifyingQuestion) notes.push(result.clarifyingQuestion)
-        for (const slot of result.missingSlots) notes.push(`Still needed: ${slot}`)
-        notes.push('Drafted by the LLM classifier — review the card before running.')
-        setNotes(notes)
+        const nextNotes: string[] = []
+        if (result.clarifyingQuestion) nextNotes.push(result.clarifyingQuestion)
+        for (const slot of result.missingSlots) nextNotes.push(`Still needed: ${slot}`)
+        nextNotes.push('Drafted by the LLM classifier — review the card before running.')
+        setNotes(nextNotes)
+        setLlmOffer(null)
         return
       }
       if (result.status === 'unsupported') {
@@ -75,14 +101,16 @@ export default function NewModification({
           result.clarifyingQuestion ?? 'That request is outside the five supported modifications for now.',
           'Pick the closest intent below and adjust its parameters, or rephrase.',
         ])
+        setLlmOffer(null)
         return
       }
-      // Classifier unavailable → offline heuristic, with the reason shown.
+      // LLM unavailable — the deterministic draft stands.
       const reason =
         result.error === 'no-key'
-          ? 'No LLM key set — add one on the Add pattern screen to use the classifier.'
-          : `Classifier unavailable (${result.error}) — used the offline heuristic.`
-      applyHeuristic(reason)
+          ? 'No LLM key set — add one on the Add pattern screen to use the LLM. The deterministic draft stands; adjust the card manually if needed.'
+          : `LLM unavailable (${result.error}) — the deterministic draft stands; adjust the card manually.`
+      setLlmOffer(null)
+      setNotes((ns) => [...ns, reason])
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -90,24 +118,11 @@ export default function NewModification({
     }
   }
 
-  const applyHeuristic = (prefixNote?: string) => {
-    const d = draftIntent(raw)
-    if (d) {
-      setIntent(d.intent)
-      setParams(d.params)
-      setNotes([...(prefixNote ? [prefixNote] : []), ...d.notes])
-    } else {
-      setNotes([
-        ...(prefixNote ? [prefixNote] : []),
-        'No intent recognized from the text — pick one below and set its parameters.',
-      ])
-    }
-  }
-
   const pickIntent = (next: Intent) => {
     setIntent(next)
     setParams(defaultParams(next))
     setNotes([])
+    setLlmOffer(null)
   }
 
   const confirm = () => {
@@ -186,13 +201,14 @@ export default function NewModification({
           />
         </label>
         <div className="row">
-          <button onClick={() => void draft()} disabled={drafting || raw.trim().length === 0}>
-            {drafting ? 'Classifying…' : 'Draft intent from text'}
+          <button onClick={draft} disabled={raw.trim().length === 0}>
+            Draft intent from text
           </button>
         </div>
         <p className="muted small">
-          LLM classifier (your key, sent per request) with offline heuristic fallback — review the
-          card below before confirming.
+          Deterministic first — your request is parsed by a rule grammar, no LLM involved. When it
+          can't claim 100% of the meaning you'll be offered the LLM (your key, per request). The
+          engine always computes the math.
         </p>
       </section>
 
@@ -346,6 +362,30 @@ export default function NewModification({
               {n}
             </p>
           ))}
+          {llmOffer && (
+            <div className="panel warn">
+              <strong>Not 100% sure this captures your meaning — no LLM was used:</strong>
+              <ul>
+                {llmOffer.map((r) => (
+                  <li key={r}>{r}</li>
+                ))}
+              </ul>
+              <div className="row">
+                <button className="primary" disabled={drafting} onClick={() => void draftWithLlm()}>
+                  {drafting
+                    ? 'Asking the LLM…'
+                    : getLlmKey()
+                      ? 'Let the LLM try this one'
+                      : 'Let the LLM try (needs your API key)'}
+                </button>
+                <button onClick={() => setLlmOffer(null)}>Keep this draft</button>
+              </div>
+              <p className="note">
+                Uses your key via the BYOK relay, sent per request. The LLM drafts the request only
+                — every number is still computed by the deterministic engine.
+              </p>
+            </div>
+          )}
           {missing.length > 0 ? (
             <div className="panel warn">
               <strong>Before this can run:</strong>
