@@ -27,10 +27,12 @@ Thumbs.db
 # Tool-internal & downloadable binaries
 .zcode/
 scripts/eng.traineddata
+__pycache__/
 
 # Personal knowledge docs — never versioned (specs + golden QA contracts ARE versioned)
 *.md
 !README.md
+!AGENTS.md
 !specs/**/*.md
 !tests/golden/**/*.md
 
