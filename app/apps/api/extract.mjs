@@ -96,7 +96,8 @@ export async function callExtract(
     }),
   })
   if (!res.ok) {
-    // Log only status; an upstream body may contain source text or secrets.
+    // Release the untrusted body without reading it; cleanup failures stay silent.
+    try { await res.body?.cancel() } catch { /* keep the generic upstream error */ }
     console.error('[extract] upstream error', res.status)
     throw new ExtractHttpError(502, 'upstream extract failed')
   }

@@ -14,7 +14,7 @@ listener; in prod, `vercel.json` routes them as serverless functions.
   first run; `/api/*` served in-process by the middleware above)
 - `npm run build:web` — typecheck + production build
 - `npm run typecheck` — whole monorepo incl. this app
-- `npm test` — full suite (256 tests across 34 files in schema/engine/parser/web/API)
+- `npm test` — full suite (260 tests across 34 files in schema/engine/parser/web/API)
 
 ## Screens
 Library · Add pattern (parse review: dedicated pdf.js worker → notation →
@@ -66,7 +66,7 @@ Backups use one 12 MiB UTF-8 serialized-file limit for both export and import.
 Oversized files are rejected before download/read, leaving existing data intact.
 
 ## Security posture (2026-08-27 hardening)
-- **Relay error privacy (2026-08-31)**: failed upstream responses log only a fixed operation label and HTTP status. Response bodies are not read or logged; they can contain reflected keys or private input. Four transport-only regression cases cover both relays without live provider calls.
+- **Relay error privacy (2026-08-31)**: failed upstream responses log only a fixed operation label and HTTP status. Response bodies are cancelled without reading or logging their contents; cleanup failures cannot replace the generic error. Eight transport-only regression cases cover both relays without live provider calls.
 - **PDF parsing uses a dedicated worker**: pdf.js runs off the page (`isEvalSupported: false`, 20 MB / 60-page caps), with no DOM or localStorage access. Workers can access IndexedDB, so this is not a complete storage-security boundary; the application keeps persistence in the page store and communicates through postMessage.
 - **No server-held secrets**: the extract + classify relays are BYOK — your API key is sent per-request, used once, never stored anywhere but this device. Caps: 8 KB segment / 12 fields / 32 KB body (extract), 2000-char raw request (classify); endpoints must be https.
 - **LLM output is untrusted data**: strict shape validation and the verbatim-evidence gate (extract) / pre-state intent gate with the absent-not-trusted NaN rule (classify) run BEFORE any field enters app state.

@@ -136,7 +136,8 @@ export async function callClassify(
     }),
   })
   if (!res.ok) {
-    // Log only status; an upstream body may contain source text or secrets.
+    // Release the untrusted body without reading it; cleanup failures stay silent.
+    try { await res.body?.cancel() } catch { /* keep the generic upstream error */ }
     console.error('[classify] upstream error', res.status)
     throw new ClassifyHttpError(502, 'upstream classify failed')
   }

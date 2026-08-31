@@ -6,7 +6,7 @@ Checkout: `codex/domain-knowledge-audit`, baseline `1c63701`
 
 Scope: read-only source and production-code inventory, protection map, and correction candidates. The only production correction authorized in this batch is the transport logging change recorded as D-1 below.
 
-The full `knitting_knowledge_base.md` was read before domain review. Original source review used the extracted Herzog passages at PDF pp. 33–34 and 353–354. Righetti PDF pp. 187–192 was reviewed for shaping-span context. C8/C9 print-reference checks were not performed; no OCR, benchmark, network service, or paid API was used. Source locators below identify KB sections separately from printed book pages. This is an inventory and risk review, not exhaustive source certification: supported principles and passing existing tests do not certify every caller, construction, source pattern, or numerical edge case.
+The full `knitting_knowledge_base.md` was read before domain review. Original source review used the extracted Herzog passages at PDF pp. 33–34 and 353–354. Righetti PDF pp. 187–192 was reviewed for shaping-span context. C8/C9 print-reference checks were not performed; no OCR, benchmark, live provider call, or paid API was used. Parent also consulted the official Undici documentation for HTTP response cleanup (below). Source locators identify KB sections separately from printed book pages. This is an inventory and risk review, not exhaustive source certification: supported principles and passing existing tests do not certify every caller, construction, source pattern, or numerical edge case.
 
 ## Production inventory
 
@@ -97,7 +97,7 @@ The following symbols and callers are coupled to protected questions. No changes
 
 ## Batch disposition
 
-* No DOMAIN tests were edited by this task. The parent added four transport-only regression tests; no fixture/test expectations were changed.
+* No DOMAIN tests were edited by this task. The parent added eight transport-only regression tests; no existing fixture/test expectations were changed.
 * D-1 is the sole approved production correction. It is transport-only and does not alter caps, request bodies, prompt rules, success parsing, or domain behavior.
 * A-1, B-1/B-2, C-1, and all question-coupled candidates remain report-only until the user explicitly authorizes a protected edit after manual decisions are preserved; parent approval alone cannot waive these protections.
 * C8/C9 and C5 remain source-verification gaps. G1 / question D2 bra-label fallback remains disabled. A4/G2 and C10 remain unanswered decisions.
@@ -107,9 +107,14 @@ The following symbols and callers are coupled to protected questions. No changes
 
 - Parent reproduced A-1, A-3, B-2 and C-1 using the existing TypeScript in memory.
   No domain source, test, or on-disk fixture was changed for these checks.
-- The four new transport-only regression cases failed against baseline `1c63701`
-  and passed after the relay patch. Full local verification passed: typecheck,
-  **256 tests across 34 files**, and production web build. Existing Vite config
+- Four privacy regression cases failed against baseline `1c63701` and passed
+  after the relay patch. Commit review then caught an unread-body cleanup gap:
+  both relays left cancellation uncalled in the initial patch. Luna added
+  cancellation without reading the body, with silent handling of cleanup errors;
+  four additional stream lifecycle cases cover success and rejection of cleanup.
+  This follows [Undici's response-body cleanup guidance](https://github.com/nodejs/undici#garbage-collection).
+  Full local verification passed: typecheck, **260 tests across 34 files**,
+  and production web build. Existing Vite config
   format warnings remain; no dependency/configuration change was made.
 - Parent reviewed the exact relay diff and corrected report scope/provenance
   claims. No UI behavior changed; no new browser session, live API request, OCR,

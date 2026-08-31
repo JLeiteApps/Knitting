@@ -46,4 +46,17 @@ describe.each(relays)('$name relay error privacy', ({ name, call }) => {
     await expect(call(fetchImpl)).rejects.toMatchObject({ status: 502, message: `upstream ${name} failed` })
     expect(text).not.toHaveBeenCalled()
   })
+
+  it.each([false, true])('cancels the error stream without exposing cleanup details (failure=%s)', async (cleanupFails) => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const cancel = vi.fn(() => {
+      if (cleanupFails) throw new Error('synthetic private cancellation failure')
+    })
+    const response = new Response(new ReadableStream({ cancel }), { status: 503 })
+    const fetchImpl = vi.fn(async () => response)
+
+    await expect(call(fetchImpl)).rejects.toMatchObject({ status: 502, message: `upstream ${name} failed` })
+    expect(cancel).toHaveBeenCalledOnce()
+    expect(log.mock.calls).toEqual([[`[${name}] upstream error`, 503]])
+  })
 })
