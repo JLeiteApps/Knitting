@@ -5,6 +5,12 @@
 > never stored server-side — shipped 2026-08-27; see web README security posture)
 > · **MVP = focused vertical slice** (five original intents; three golden construction families now covered).
 
+Status reviewed 2026-08-31 against implementation commit `5dfd340`. Current
+milestones and verification are in §§7–8. The [documentation status index](documentation_status.md)
+records protected legacy claims retained in this plan; this sweep does not
+change domain contracts or answer manual questions. See the
+[source-to-code audit](domain_audit.md) for known implementation discrepancies.
+
 ## 1. Repository layout (knowledge folders untouched)
 ```
 app/                     ← all product code
@@ -58,12 +64,22 @@ Library · Add pattern (parse review w/ confidence + Σ panel) · Fit profile fo
 favorite-garment mode remains a future UX decision) · New modification (NL → intent card → show-the-math) ·
 Modification sheet (diff steps, warnings, print/export) · Validation report (drift table, Σ list).
 
-## 7. Milestones (2026-08-30)
+## 7. Milestones (2026-08-31)
 M0–M5 foundation is implemented: workspaces, contracts, engine, parser candidates,
 web screens, BYOK relays, IndexedDB, installable PWA, security gates and backups.
 The reliability batch adds encrypted-edit persistence, fresh encrypted backups,
 conflict handling, visible storage failure, truthful sheet states, strict import
 boundaries, explicit LLM opt-in, fixed browser PDF workers and editable drafts.
+
+Workflow recovery was accepted at `1c63701`: tab-memory drafts survive navigation,
+vault locking purges profile drafts, missing identities and stale async results
+are guarded, and backup export/import use the same UTF-8 byte limit. Request
+gauge entry is complete as documented in [App UX](app_ux.md).
+
+The protected audit was accepted at `e994825` plus review correction `5dfd340`.
+Its only production change is relay error privacy and response-stream cleanup;
+eight transport regression tests were added. Deferred domain findings remain
+open, and the user's protection rule overrides the older feature backlog.
 
 Real Flax imports remain partial drafts; successful extraction does not establish
 complete automatic instruction parsing. Four extension request forms and a
@@ -73,11 +89,15 @@ excluded from this batch.
 
 ## 8. Testing & QA
 Use typecheck, the full Vitest suite and the production web build after edits.
-See web README for the current suite count. Golden expectations are independently
+See [web README](../app/apps/web/README.md) for the current suite count. Golden expectations are independently
 derived, with exact Σ and <0.25-inch drift checks. Local browser review covers
 body changes, real-PDF extraction/drafts, profile units/vault reload, phone layout
 and offline deterministic use. No live paid API, OCR or performance benchmark was
-run. Unsaved-form navigation preservation and gauge-entry UX remain follow-ups.
+run. Workflow browser checks also covered navigation/Back, import recovery and
+vault draft purge. The later relay audit used mocked transport checks, with no
+new browser or live-provider run. Latest local gates: typecheck, 260 tests across
+34 files, and production web build passed. Local real-PDF tests require ignored
+assets; see [golden setup](../tests/golden/README.md#local-fixtures-and-ci).
 
 ## 9. Known-gap runtime handling
 G5 → st-level compensation + "unmeasured factor" warning · G2 → grade-by-table only (linear

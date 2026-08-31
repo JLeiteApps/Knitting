@@ -5,6 +5,30 @@ intent, with **hand-computed** expected numbers derived from the knowledge base
 (independent of the engine code — never generate expectations by running the
 engine).
 
+Status reviewed 2026-08-31 against `5dfd340`. Existing case contracts and
+hand-derived numbers are unchanged. The [documentation status index](../../specs/documentation_status.md)
+records stale historical TODOs without editing protected expectations; the
+[domain audit](../../specs/domain_audit.md) records unresolved correctness risks.
+Passing golden cases do not constitute complete source or geometry certification.
+
+## Local fixtures and CI
+
+Run `npm run typecheck`, `npm test`, and `npm run build:web` from the repository
+root. The latest full local suite has 260 tests across 34 files. Three suites
+also need these existing, user-supplied assets, which are deliberately ignored:
+
+| Required local path | Consumers |
+|---|---|
+| `tests/golden/flax-worsted/text.md` | `app/packages/parser/test/sections.golden.test.ts`, `sectionBuilder.golden.test.ts` |
+| `tests/golden/pdfs/FLAX-tincanknits-WORSTED.pdf` | `app/apps/web/src/pdf/extract.node.test.ts` |
+
+A fresh checkout needs the user's existing local copies at those paths before
+the full suite can load. Do not force-add the PDF/full-text extract, invent
+replacement fixtures, skip the affected tests, or start OCR for setup. The
+current GitHub CI workflow does not provision these files, so local success is
+not a claim that clean-checkout CI passes. Copyright-safe CI provisioning remains
+deferred (audit D-3); no CI configuration or fixture changed in this sweep.
+
 ## Acceptance criteria (per case)
 - Engine output matches the hand-computed numbers exactly (stitch counts, row
   counts, inch values at 2-decimal rounding where the KB allows).

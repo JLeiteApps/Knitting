@@ -65,7 +65,7 @@ the header toggle mirrors it and sticks the choice on the active profile.
 Backups use one 12 MiB UTF-8 serialized-file limit for both export and import.
 Oversized files are rejected before download/read, leaving existing data intact.
 
-## Security posture (2026-08-27 hardening)
+## Security posture (reviewed 2026-08-31)
 - **Relay error privacy (2026-08-31)**: failed upstream responses log only a fixed operation label and HTTP status. Response bodies are cancelled without reading or logging their contents; cleanup failures cannot replace the generic error. Eight transport-only regression cases cover both relays without live provider calls.
 - **PDF parsing uses a dedicated worker**: pdf.js runs off the page (`isEvalSupported: false`, 20 MB / 60-page caps), with no DOM or localStorage access. Workers can access IndexedDB, so this is not a complete storage-security boundary; the application keeps persistence in the page store and communicates through postMessage.
 - **No server-held secrets**: the extract + classify relays are BYOK — your API key is sent per-request, used once, never stored anywhere but this device. Caps: 8 KB segment / 12 fields / 32 KB body (extract), 2000-char raw request (classify); endpoints must be https.
@@ -81,19 +81,22 @@ Oversized files are rejected before download/read, leaving existing data intact.
 
 The 2026-08-31 [source-to-code audit](../../../specs/domain_audit.md) inventories
 the application and records source discrepancies and deferred defects. Its only
-production change is relay error logging. Protected domain behavior, question
+production change is relay error privacy and response-stream cleanup. Protected domain behavior, question
 answers and fixtures remain unchanged; passing tests do not resolve the audit's
 deferred findings. Local real-PDF tests require the existing ignored Flax PDF and
-text assets; clean-checkout CI provisioning remains an audit follow-up.
+text assets; clean-checkout CI provisioning remains an audit follow-up. Required
+paths are listed in [golden setup](../../../tests/golden/README.md#local-fixtures-and-ci).
+The [documentation status index](../../../specs/documentation_status.md) records
+the Markdown sweep and protected legacy notes that were deliberately preserved.
 
 The original five intents are deterministic and tested. The registry also
 exposes waist-shape reposition, hip width, upper-arm width, and back-neck raise
 request forms, but every one remains blocked until its required geometry and
 evidence contract exists; a Σ-balanced placeholder is never emitted. Generic
 bra-size-to-measurement conversion is unsupported, so cup-size-only requests
-remain blocked pending measurements. The current batch covers vault/backup
+remain blocked pending measurements. Earlier accepted batches covered vault/backup
 hardening, truthful validation statuses, browser PDF worker delivery, editable
-partial drafts, and offline/browser QA. Android/Capacitor work is explicitly
-excluded from this batch; the Flax PDF parser is still partial and is not
+partial drafts, navigation recovery, and offline/browser QA. Android/Capacitor work remains
+explicitly excluded; the Flax PDF parser is still partial and is not
 claimed to be a full instruction parser. No paid API calls, OCR runs, or
 performance benchmarks are part of the app workflow.

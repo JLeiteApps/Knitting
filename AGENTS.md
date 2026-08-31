@@ -40,6 +40,14 @@ Non-negotiables (full detail in PROJECT_PROMPT.md core rules):
    explicitly asks (first push 2026-08-30, user-authorized — the old
    no-push mandate is lifted). The personal knowledge docs stay
    unversioned (gitignored); never force-add them.
+10. **Manual-question protection (user-mandated 2026-08-31):** do not change
+    anything related to, or capable of affecting, unanswered manual-question
+    topics. This includes shared helpers, tests, fixtures, gates and wording.
+    Record findings separately; parent review does not waive the restriction.
+    See `specs/domain_audit.md` for the dependency map and
+    `specs/documentation_status.md` for documentation review coverage and
+    preserved discrepancies. A documentation sweep does not authorize changes
+    to protected contracts or answers.
 
 Key paths: product code `app/` (web PWA, api relays, packages) · specs
 `specs/` (descriptive contracts — keep true) · golden QA `tests/golden/` ·

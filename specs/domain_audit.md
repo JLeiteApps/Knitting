@@ -4,6 +4,10 @@ Audit date: 2026-08-31
 
 Checkout: `codex/domain-knowledge-audit`, baseline `1c63701`
 
+Accepted on local main in `e994825` and `5dfd340`; not pushed as of 2026-08-31.
+The later [documentation sweep](documentation_status.md) changes status and setup
+guidance only. It does not expand this audit's source coverage or resolve findings.
+
 Scope: read-only source and production-code inventory, protection map, and correction candidates. The only production correction authorized in this batch is the transport logging change recorded as D-1 below.
 
 The full `knitting_knowledge_base.md` was read before domain review. Original source review used the extracted Herzog passages at PDF pp. 33–34 and 353–354. Righetti PDF pp. 187–192 was reviewed for shaping-span context. C8/C9 print-reference checks were not performed; no OCR, benchmark, live provider call, or paid API was used. Parent also consulted the official Undici documentation for HTTP response cleanup (below). Source locators identify KB sections separately from printed book pages. This is an inventory and risk review, not exhaustive source certification: supported principles and passing existing tests do not certify every caller, construction, source pattern, or numerical edge case.
