@@ -136,8 +136,8 @@ export async function callClassify(
     }),
   })
   if (!res.ok) {
-    // Full upstream detail stays server-side; the client gets a generic error.
-    console.error('[classify] upstream error', res.status, (await res.text()).slice(0, 500))
+    // Log only status; an upstream body may contain source text or secrets.
+    console.error('[classify] upstream error', res.status)
     throw new ClassifyHttpError(502, 'upstream classify failed')
   }
   const body = await res.json()
@@ -160,6 +160,6 @@ export default async function handler(req, res) {
     const status = e instanceof ClassifyHttpError ? e.status : 502
     const message = e instanceof ClassifyHttpError ? e.message : 'classify failed'
     res.statusCode = status
-    res.end(JSON.stringify({ error: message })) // generic; detail logged above
+    res.end(JSON.stringify({ error: message })) // generic; upstream body is never logged
   }
 }

@@ -96,8 +96,8 @@ export async function callExtract(
     }),
   })
   if (!res.ok) {
-    // Full upstream detail stays server-side; the client gets a generic error.
-    console.error('[extract] upstream error', res.status, (await res.text()).slice(0, 500))
+    // Log only status; an upstream body may contain source text or secrets.
+    console.error('[extract] upstream error', res.status)
     throw new ExtractHttpError(502, 'upstream extract failed')
   }
   const body = await res.json()
@@ -120,6 +120,6 @@ export default async function handler(req, res) {
     const status = e instanceof ExtractHttpError ? e.status : 502
     const message = e instanceof ExtractHttpError ? e.message : 'extract failed'
     res.statusCode = status
-    res.end(JSON.stringify({ error: message })) // generic; detail logged above
+    res.end(JSON.stringify({ error: message })) // generic; upstream body is never logged
   }
 }
