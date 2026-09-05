@@ -2,8 +2,8 @@
 
 ## Garment-selection implementation — 2026-09-05
 
-[Garment selection plan](garment_selection_plan.md) has been implemented on its
-scoped worktree and awaits the planned independent validation. It adds the optional
+[Garment selection plan](garment_selection_plan.md) has been implemented and
+[independently validated](garment_selection_review.md) at final head `bab0c5b`. It adds the optional
 finite `Pattern.garmentKind` field, one pure construction-aware resolver, one native
 Add pattern garment select with Sweater as the only enabled choice, and matching
 capability/engine guards. Legacy sweater records resolve in memory without a storage
@@ -14,10 +14,11 @@ docs now describe the delivered boundary. The follow-up correction makes invalid
 present garment metadata ineligible without legacy fallback, renders the resolved
 review-stage selector, invalidates stale PDF extraction after a garment change, and
 persists a deliberate review-stage placeholder choice as explicit unknown metadata.
-Local verification passed: typecheck, 273
-tests across 35 files, and production web build. Browser UI verification is not
-available from the delegated worktree session; it remains for independent review.
-No push or deployment occurred. The historical review below remains intact.
+Local verification passed: typecheck, 273 tests across 35 files, and production
+web build. Production-browser review covered import/review, the legacy sweater
+modification path, unavailable-state disclosure, Back recovery, 360 px layout and
+offline deterministic use without attributable console warnings/errors. No push or
+deployment occurred. The historical review below remains intact.
 
 ## August review record
 
