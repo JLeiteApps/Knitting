@@ -63,6 +63,18 @@ export type ConstructionType =
   | 'accessory_scarf'
   | 'accessory_tam';
 
+/** Garment identity is additive metadata. It does not change the sweater sizing schema. */
+export type GarmentKind =
+  | 'sweater'
+  | 'sock'
+  | 'hat'
+  | 'mitten'
+  | 'glove'
+  | 'scarf'
+  | 'tam'
+  | 'trousers'
+  | 'unknown';
+
 export interface Construction {
   direction: 'bottom_up' | 'top_down';
   /** Which sections (by id) are worked which way; sections not listed use the garment default. */
@@ -154,6 +166,8 @@ export interface PatternMeta {
 
 export interface Pattern {
   schemaVersion: '0.1';
+  /** Optional so stored v0.1 sweater records remain readable without migration. */
+  garmentKind?: GarmentKind;
   meta: PatternMeta;
   sizing: Sizing;
   gauge: GaugeBlock[];

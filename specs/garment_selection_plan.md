@@ -1,8 +1,12 @@
 # Garment selection — implementation and independent validation plan
 
-Date: 2026-09-05. Status: **PLAN READY; IMPLEMENTATION NOT STARTED**.
+Date: 2026-09-05. Status: **IMPLEMENTED; INDEPENDENT VALIDATION PENDING**.
 Implementation: **GPT-5.6 Terra, High**. Independent validation: **GPT-5.6 Sol, High**.
-Baseline inspected: local main `43e6f0f`; latest production change `5dfd340`.
+Implemented from local main `62c066c` in isolated `codex/garment-selection`.
+The delivered change is limited to the section-2 exception: additive field/resolver,
+native selector, compatibility/capability/engine guards, focused tests and matching
+documentation. No protected formula, golden expectation, parser heuristic or manual
+answer changed.
 
 ## 1. Outcome and scope
 

@@ -87,6 +87,12 @@ capability registry exist, but waist/hip/upper-arm/back-neck generation remains
 blocked pending explicit geometry. M6/Android (roadmap step 7) is explicitly
 excluded from this batch.
 
+The garment-selection increment adds optional `Pattern.garmentKind`, a shared
+legacy resolver and one Add pattern selector. Only sweaters remain implemented;
+the existing capability and engine entry points block unsupported or conflicting
+families before current sweater formulas run. This adds no accessory schema,
+formula, parser heuristic, generic framework or new route.
+
 ## 8. Testing & QA
 Use typecheck, the full Vitest suite and the production web build after edits.
 See [web README](../app/apps/web/README.md) for the current suite count. Golden expectations are independently
@@ -95,8 +101,8 @@ body changes, real-PDF extraction/drafts, profile units/vault reload, phone layo
 and offline deterministic use. No live paid API, OCR or performance benchmark was
 run. Workflow browser checks also covered navigation/Back, import recovery and
 vault draft purge. The later relay audit used mocked transport checks, with no
-new browser or live-provider run. Latest local gates: typecheck, 260 tests across
-34 files, and production web build passed. Local real-PDF tests require ignored
+new browser or live-provider run. Latest local gates: typecheck, 269 tests across
+35 files, and production web build passed. Local real-PDF tests require ignored
 assets; see [golden setup](../tests/golden/README.md#local-fixtures-and-ci).
 
 ## 9. Known-gap runtime handling

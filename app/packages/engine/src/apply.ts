@@ -3,7 +3,7 @@
  * (specs/intent_grammar.md §2). Deterministic: same inputs → same outputs,
  * every change Σ-verified and reported in the validation gate.
  */
-import { validatePattern, type Pattern, type Section, type ShapingEvent } from '@knitting/schema';
+import { garmentEligibility, validatePattern, type Pattern, type Section, type ShapingEvent } from '@knitting/schema';
 import {
   convertCount,
   convertRows,
@@ -59,6 +59,8 @@ export function applyIntent(
   const warnings: string[] = [];
   const inputDiagnostics = validatePattern(pattern).filter((d) => d.level === 'error');
   if (inputDiagnostics.length > 0) throw new Error(`pattern is not structurally valid: ${inputDiagnostics[0]!.message}`);
+  const garment = garmentEligibility(pattern);
+  if (!garment.eligible) throw new Error(`pattern is unavailable for modification: ${garment.reason}`);
   if (!Number.isInteger(sizeIndex) || sizeIndex < 0 || sizeIndex >= pattern.sizing.sizeCount) throw new Error('requested size index is outside the pattern size range');
   if (!intentMatchesKind(request.intent, request.params.kind)) throw new Error(`intent ${request.intent} does not match parameter kind ${request.params.kind}`);
   validateRequestNumbers(request);

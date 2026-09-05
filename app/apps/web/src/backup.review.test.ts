@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildBackup, parseBackup } from './backup'
+import { buildBackup, isStoredPattern, parseBackup } from './backup'
 import { sealVault } from './vault'
 import { validatePatternUnknown } from '@knitting/schema'
 import { flaxLike } from '@knitting/engine'
@@ -33,6 +33,31 @@ describe('independent privacy and input-boundary review', () => {
     const pattern = flaxLike()
     Object.assign(pattern.sections[0]!, { method: 'invalid-method' })
     expect(validatePatternUnknown(pattern).some((d) => d.level === 'error')).toBe(true)
+  })
+
+  it('round-trips explicit garment identity in plaintext and encrypted-profile backups', async () => {
+    const pattern = { ...flaxLike(), garmentKind: 'sweater' as const }
+    const plaintext = parseBackup(JSON.stringify(buildBackup({ ...source(), patterns: [pattern] })))!
+    expect(plaintext.patterns[0]?.garmentKind).toBe('sweater')
+
+    const profileVault = await sealVault(JSON.stringify([profile]), 'synthetic-review-passphrase')
+    const encrypted = parseBackup(JSON.stringify(buildBackup({ ...source(), patterns: [pattern], profileVault })))!
+    expect(encrypted.patterns[0]?.garmentKind).toBe('sweater')
+    expect(encrypted.profileVault).toEqual(profileVault)
+  })
+
+  it('retains legacy and conflicting garment records for recovery while rejecting malformed identity metadata', () => {
+    const legacyAccessory = flaxLike()
+    legacyAccessory.construction.type = 'accessory_sock'
+    expect(isStoredPattern(legacyAccessory)).toBe(true)
+
+    const conflict = { ...flaxLike(), garmentKind: 'sock' as const }
+    expect(validatePatternUnknown(conflict).some((d) => d.code === 'GARMENT_CONSTRUCTION_CONFLICT' && d.level === 'warning')).toBe(true)
+    expect(isStoredPattern(conflict)).toBe(true)
+
+    const malformed = { ...flaxLike(), garmentKind: null }
+    expect(validatePatternUnknown(malformed).some((d) => d.code === 'GARMENT_KIND_INVALID' && d.level === 'error')).toBe(true)
+    expect(isStoredPattern(malformed)).toBe(false)
   })
 
   it.each([

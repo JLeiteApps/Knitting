@@ -1,18 +1,19 @@
 # Documentation status and review coverage
 
-## Planning follow-up — 2026-09-05
+## Garment-selection implementation — 2026-09-05
 
-[Garment selection plan](garment_selection_plan.md) is ready for Terra High
-implementation and Sol High independent validation after scoped execution
-authorization. It specifies one page/select, additive garment identity, legacy
-compatibility and an engine guard; no new garment formulas or generic framework.
-Implementation and review have not started. The maintained registry gains this
-plan; the counts below describe the dated August review, not a new full inventory.
-Current status/spec references were swept for this planning change. Runtime, tests,
-golden fixtures, KB and checklist are unchanged. Personal handoff/bootstrap/plan
-records link the new plan. Local verification passed: typecheck, 260 tests across
-34 files, and production web build. This follow-up is committed
-locally; no push or deployment. The historical review below remains intact.
+[Garment selection plan](garment_selection_plan.md) has been implemented on its
+scoped worktree and awaits the planned independent validation. It adds the optional
+finite `Pattern.garmentKind` field, one pure construction-aware resolver, one native
+Add pattern garment select with Sweater as the only enabled choice, and matching
+capability/engine guards. Legacy sweater records resolve in memory without a storage
+rewrite; valid conflicts remain recoverable while malformed explicit identity values
+are rejected. No formulas, golden expectations, parser heuristics, new garment forms,
+routes, packages, KB, or checklist content changed. The tracked schema/engine/UX/app
+docs now describe the delivered boundary. Local verification passed: typecheck, 269
+tests across 35 files, and production web build. Browser UI verification is not
+available from the delegated worktree session; it remains for independent review.
+No push or deployment occurred. The historical review below remains intact.
 
 ## August review record
 
@@ -54,14 +55,14 @@ status documents. Personal docs and plans remain gitignored; never force-add the
 | Document | Review disposition |
 |---|---|
 | [AGENTS.md](../AGENTS.md) | Updated to record the existing user protection rule and link this index. Other standing rules unchanged. |
-| [Web README](../app/apps/web/README.md) | Updated audit scope to include stream cleanup, separated earlier batches from current work, linked fixture setup and review coverage. |
-| [App plan](app_plan.md) | Updated milestones/QA for workflow recovery and the accepted audit; removed completed work from follow-ups. Protected domain paragraphs retained. |
-| [App UX](app_ux.md) | Reviewed unchanged: already describes session drafts, vault purge and backup limits. No UI changed in the audit/sweep. |
+| [Web README](../app/apps/web/README.md) | Updated audit scope and the delivered sweater-only garment selector, legacy behavior and engine guard. |
+| [App plan](app_plan.md) | Updated milestones/QA for workflow recovery, the accepted audit and garment-selection boundary; protected domain paragraphs retained. |
+| [App UX](app_ux.md) | Updated for the native selector, import/recovery behavior and unavailable-pattern request guard. |
 | [Domain audit](domain_audit.md) | Added accepted-commit and documentation-sweep status; findings and protection map unchanged. |
-| [Engine functions](engine_functions.md) | Reviewed unchanged under protection; audit findings qualify its implementation claims. |
+| [Engine functions](engine_functions.md) | Updated only for the shared routing guard before existing capability/fallback rows; no math changed. |
 | [Intent grammar](intent_grammar.md) | Reviewed unchanged under protection; legacy count and illustrative syntax issues are recorded below. |
 | [Parser grammar](parser_grammar.md) | Reviewed unchanged under protection; staged pipeline/partial-import boundary still applies. |
-| [Pattern schema](pattern_schema.md) | Reviewed unchanged under protection; conceptual examples are not the complete runtime schema. |
+| [Pattern schema](pattern_schema.md) | Updated for optional additive garment identity, resolver/compatibility and recovery boundary. |
 | [Validation loop](validation_loop.md) | Reviewed unchanged under protection; audit B-2 records the incomplete dimension-check behavior. |
 | [Golden README](../tests/golden/README.md) | Added local fixture prerequisites, CI limitation and review pointers; acceptance criteria unchanged. |
 | [Flax-like expectations](../tests/golden/flax-like/expectations.md) | Reviewed unchanged under protection; stale concluding TODO recorded below. |

@@ -25,6 +25,7 @@ async function mount(activeStore = store()) {
   await act(async () => { view = create(createElement(AddPattern, { store: activeStore, go: vi.fn() })) })
 }
 async function parse(source: string) {
+  await act(async () => control('Garment').props.onChange({ target: { value: 'sweater' } }))
   await act(async () => view!.root.findByType('textarea').props.onChange({ target: { value: source } }))
   await act(async () => button('Parse pasted text').props.onClick())
 }

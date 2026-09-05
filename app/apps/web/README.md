@@ -14,10 +14,12 @@ listener; in prod, `vercel.json` routes them as serverless functions.
   first run; `/api/*` served in-process by the middleware above)
 - `npm run build:web` — typecheck + production build
 - `npm run typecheck` — whole monorepo incl. this app
-- `npm test` — full suite (260 tests across 34 files in schema/engine/parser/web/API)
+- `npm test` — full suite (269 tests across 35 files in schema/engine/parser/web/API)
 
 ## Screens
-Library · Add pattern (parse review: dedicated pdf.js worker → notation →
+Library · Add pattern (one native garment select before upload/paste; only
+Sweater is enabled, while unavailable families remain disabled; parse review:
+dedicated pdf.js worker → notation →
 evidence-gated LLM extract → section builder → validate diagnostics; opens with
 a plain-language parse digest; PDFs drag-and-droppable; saved drafts can be
 reopened with their existing IR preserved) · Fit profile (Herzog fields,
@@ -25,7 +27,8 @@ opt-in AES-GCM vault) · New modification (deterministic-first Draft:
 the rule grammar in `nlGrammar.ts` parses the request with no LLM and reports
 confidence; when it isn't 100% sure it explains why and offers an optional
 LLM pass via `/api/classify`; editable intent card + slot-filling gate; missing
-route patterns, unavailable sizes and deleted selected profiles block explicitly) ·
+route patterns, unavailable garment identity/construction combinations, sizes and
+deleted selected profiles block explicitly) ·
 Sheet (validation gate + "what these checks mean"
 explainer, drift table, Σ list, Print / Save as PDF with a standalone print
 header) · Library "Your data" (versioned JSON backup + restore — the
@@ -64,6 +67,19 @@ the header toggle mirrors it and sticks the choice on the active profile.
 
 Backups use one 12 MiB UTF-8 serialized-file limit for both export and import.
 Oversized files are rejected before download/read, leaving existing data intact.
+
+## Garment selection and compatibility (2026-09-05)
+
+`Pattern.garmentKind` is optional additive metadata. A shared schema resolver
+reads legacy named sweater constructions as `sweater` in memory without writing
+storage; legacy accessory constructions resolve to their accessory family.
+Explicit malformed identities are rejected at the JSON boundary, while a valid
+identity/construction conflict stays recoverable as a draft/backup record and is
+blocked from acceptance and modification. The capability display and
+`applyIntent` both use the same eligibility guard, so a direct engine call cannot
+send an accessory, trousers, unknown, or conflicting record through sweater math.
+No accessory forms, formulas, routes, storage migration, or parser heuristics
+were added.
 
 ## Security posture (reviewed 2026-08-31)
 - **Relay error privacy (2026-08-31)**: failed upstream responses log only a fixed operation label and HTTP status. Response bodies are cancelled without reading or logging their contents; cleanup failures cannot replace the generic error. Eight transport-only regression cases cover both relays without live provider calls.

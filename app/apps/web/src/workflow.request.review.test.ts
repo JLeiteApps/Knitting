@@ -50,6 +50,15 @@ async function mount(store: Store, patternId = store.patterns[0]!.meta.name) {
 }
 
 describe('independent request identity and interaction review', () => {
+  it('shows unsupported garment records as unavailable and blocks drafting and Run', async () => {
+    const store = storeForTest()
+    store.patterns[0]!.construction.type = 'accessory_sock'
+    await mount(store)
+    expect(nodeText(view!.root)).toContain('Modification unavailable')
+    expect(button('Draft intent from text').props.disabled).toBe(true)
+    expect(button('Run modification').props.disabled).toBe(true)
+  })
+
   it('never substitutes the first library pattern for a deleted route target', async () => {
     const store = storeForTest()
     await mount(store, 'Deleted source pattern')

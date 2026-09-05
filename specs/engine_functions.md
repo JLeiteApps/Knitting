@@ -83,7 +83,8 @@ two-tier discipline: gate blocks the sheet; schema validation reports the IR.
 - C10 ease-length rule magnitude (Herzog ⅔ implemented, Shroyer ½ pending decision).
 
 ## 8. Reliability and capability boundaries (2026-08-30)
-- `applyIntent` validates the source IR, size index, intent/kind agreement and numeric
+- `applyIntent` validates the source IR, garment identity/construction eligibility,
+  size index, intent/kind agreement and numeric
   request domains before computation. The modified IR is checked at runtime too.
 - Size selection respects upper-torso versus full-bust basis and requires explicit
   finished measurements; a to-fit chart is not a finished-garment chart.
@@ -94,3 +95,8 @@ two-tier discipline: gate blocks the sheet; schema validation reports the IR.
 - `capability.ts` documents required measurements, provenance and implemented checks.
   Waist reposition, hip width, upper-arm width and back-neck raise remain blocked;
   a construction label or cancelling Σ events cannot prove their geometry.
+- `capabilityFor` receives garment plus construction context and resolves the same
+  eligibility result as `applyIntent`. Only compatible, known sweater constructions
+  can reach existing registry rows; accessory, trousers, unknown, and conflicting
+  records return a blocked disclosure before any sweater fallback row is considered.
+  This is routing only: no numerical formula or construction requirement changed.

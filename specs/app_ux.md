@@ -14,8 +14,13 @@
    unit, gauge, basis) with validation chips (`Σ clean` / errors / `NO_SCHEMATIC`
    / draft); sheet history with per-sheet gate status. Local-first: state lives
    on-device (Dexie + localStorage bootstrap cache; M5).
-2. **Add pattern → parse review** — staged pipeline over the pasted/uploaded
-   text: optional **BYOK LLM key field** (device-only, per-request; enables
+2. **Add pattern → parse review** — one labelled native **Garment** select comes
+   before upload/paste. Sweater is the sole enabled option; unavailable sock,
+   hat, mitten and trousers/leggings options are disabled and cannot start an
+   alternate workflow. A new source import requires Sweater, while its
+   construction/direction/working-method review remains independent. The staged
+   pipeline over the pasted/uploaded text is: optional **BYOK LLM key field**
+   (device-only, per-request; enables
    LLM-assisted fields) → "Pattern units" dropdown (in/cm — DECLARED, never
    detected) → pdf.js **confined-worker** text extraction (20 MB / 60-page
    caps; scanned pages flagged) → notation layer (gauge incl. metric
@@ -38,7 +43,10 @@
    offers an optional LLM pass — "Let the LLM try" (BYOK key, per request) or
    "Keep this draft") → editable intent card with slot-filling gate (missing
    measurements block Run with the KB questions; clarifying questions surface
-   as notes; unsupported intents get a pick-closest prompt) → engine call.
+   as notes; unsupported intents get a pick-closest prompt) → engine call. A
+   shared garment/construction guard instead shows an unavailable/review message
+   and blocks deterministic drafting, optional classifier use and Run for
+   accessory, trousers, unknown or conflicting records.
 5. **Sheet** — validation gate FIRST (verified renders steps; advisory and blocked
    states withhold instructions and explain incomplete evidence or failures), drift table (active unit), Σ list with exact
    equations, warnings (irreversible/unverified), per-step math + KB refs,
@@ -110,6 +118,10 @@ including an offscreen editor. API keys and vault passphrases are excluded.
   rate. Partial or invalid edits invalidate the earlier rate and block Run.
 - Mixed-unit patterns against the declared dropdown show up as review values
   with evidence; re-import with the other declaration.
+- The selected garment survives the tab-memory import draft and normal save. A
+  legacy named sweater displays as its resolved sweater identity without a
+  read-time storage rewrite; legacy accessory/unknown/conflicting records remain
+  recoverable but are unavailable for sweater modification.
 
 ## Reliability follow-ups
 - Saving state and storage failures are visible in the app shell; keep the page

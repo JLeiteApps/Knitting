@@ -1,4 +1,4 @@
-import type { ConstructionType } from '@knitting/schema'
+import { garmentEligibility, type ConstructionType, type Pattern } from '@knitting/schema'
 import type { Intent } from '@knitting/shared'
 
 export type CapabilityStatus = 'implemented' | 'advisory' | 'blocked' | 'deferred'
@@ -88,7 +88,19 @@ export const CAPABILITY_MATRIX: readonly CapabilityEntry[] = [
   },
 ]
 
-export function capabilityFor(intent: Intent, construction: ConstructionType): CapabilityEntry {
+export function capabilityFor(intent: Intent, pattern: Pick<Pattern, 'garmentKind' | 'construction'>): CapabilityEntry {
+  const eligibility = garmentEligibility(pattern)
+  const construction = pattern.construction.type
+  if (!eligibility.eligible) {
+    return {
+      intent,
+      construction,
+      status: 'blocked',
+      requiredMeasurements: [],
+      provenance: [eligibility.reason ?? 'unsupported garment identity'],
+      implementedValidation: ['garment identity and construction compatibility gate'],
+    }
+  }
   return CAPABILITY_MATRIX.find((x) => x.intent === intent && x.construction === construction)
     ?? CAPABILITY_MATRIX.find((x) => x.intent === intent && x.construction === 'any')
     ?? {

@@ -33,6 +33,7 @@
 ```
 Pattern
 ├── schema_version            "0.1"
+├── garment_kind?              optional finite identity; additive v0.1 metadata (§2.0)
 ├── meta                      name, designer, publisher, year?, pdf_ref, copyright_note,
 │                             parse_date, parser_confidence
 ├── sizing                    size system (§2.1)
@@ -44,6 +45,23 @@ Pattern
 ├── sections                  ordered instruction spine (§3)
 └── finishing                 seam/pickup/blocking notes (informational)
 ```
+
+## 2.0 `garment_kind` (optional additive identity)
+
+The runtime field is `garmentKind?: "sweater" | "sock" | "hat" | "mitten" |
+"glove" | "scarf" | "tam" | "trousers" | "unknown"`. It is optional so
+stored v0.1 records need no migration. `resolveGarmentKind` maps only known
+construction enum entries; it never guesses from names or source text and never
+mutates a record while reading it. A missing named sweater construction resolves
+in memory as `sweater`; known accessory construction resolves as its matching
+family; an unknown construction stays `unknown`.
+
+If present, the value must be one of that finite set at both typed and imported
+JSON boundaries. A valid explicit identity that conflicts with a known
+construction is a recoverable workflow warning, not structural data loss: it is
+retained for draft/backup recovery but cannot be accepted or modified. The shared
+eligibility guard only enables compatible, known sweater constructions. It does
+not reinterpret the existing bust/chest sizing field for accessories or trousers.
 
 ## 2.1 `sizing`
 
@@ -235,9 +253,12 @@ and working method may be `unknown` in stored drafts, but not accepted patterns.
 
 Runtime validation checks imported shapes, finite numeric values, size-array
 alignment, valid method/event enums, gauge normalization and nonnegative integer
-event schedules. Starting stitches are positive; end checkpoints may be zero for
-fully closed sections. Only specific incompleteness diagnostics are allowed through
-the draft-storage boundary; malformed nested values are rejected.
+event schedules. It also rejects a present malformed `garmentKind`; a valid
+garment/construction conflict remains a recoverable warning and the workflow
+eligibility boundary blocks it. Starting stitches are positive; end checkpoints
+may be zero for fully closed sections. Only specific incompleteness diagnostics
+are allowed through the draft-storage boundary; malformed nested values are
+rejected.
 
 Unknown placeholder bust values are not finished measurements. Short-row turn
 points are stitch positions, not inch measurements. Until complete placement

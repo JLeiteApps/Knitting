@@ -5,6 +5,7 @@ import type {
   Section,
   ShapingEvent,
 } from './index.js';
+import { isGarmentKind, resolveGarmentKind } from './garment.js';
 
 const CONSTRUCTION_TYPES: ReadonlySet<string> = new Set<ConstructionType>([
   'unknown',
@@ -71,6 +72,14 @@ export function validatePattern(pattern: Pattern): Diagnostic[] {
   };
 
   if (!Number.isInteger(n) || n <= 0) diags.push({ level: 'error', code: 'BAD_SIZE_COUNT', message: 'sizeCount must be a positive integer', path: 'sizing.sizeCount' });
+  if (Object.prototype.hasOwnProperty.call(pattern, 'garmentKind') && !isGarmentKind(pattern.garmentKind)) {
+    diags.push({ level: 'error', code: 'GARMENT_KIND_INVALID', message: 'garmentKind must be a supported garment identity when present', path: 'garmentKind' });
+  } else if (isGarmentKind(pattern.garmentKind)) {
+    const garment = resolveGarmentKind(pattern);
+    if (!garment.compatible) {
+      diags.push({ level: 'warning', code: 'GARMENT_CONSTRUCTION_CONFLICT', message: `garmentKind ${garment.kind} conflicts with construction ${pattern.construction.type}; retain as a draft and review it before modifying`, path: 'garmentKind' });
+    }
+  }
   if (!Array.isArray(pattern.sizing.labels) || pattern.sizing.labels.some((x) => typeof x !== 'string' || x.trim() === '')) diags.push({ level: 'error', code: 'LABEL_INVALID', message: 'every size label must be a non-empty string', path: 'sizing.labels' });
   if (!['to_fit', 'finished', 'unknown'].includes(pattern.sizing.measurementBasis)) diags.push({ level: 'error', code: 'MEASUREMENT_BASIS', message: 'measurementBasis is invalid', path: 'sizing.measurementBasis' });
 

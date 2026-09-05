@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { applyIntent, capabilityFor, cmToIn, inToCm } from '@knitting/engine'
+import { garmentEligibility } from '@knitting/schema'
 import { fmtLen, fromCanonicalInches, toCanonicalInches } from '../units'
 import type { FitProfile, Intent, ModificationRequest } from '@knitting/shared'
 import { INTENT_BACKING, INTENT_LABELS, INTENT_ORDER, missingSlots } from '../intents'
@@ -109,10 +110,15 @@ export default function NewModification({
       ? 'The selected fit profile is no longer available. Choose another profile or select none.'
       : ''
   const backing = INTENT_BACKING[intent]
-  const capability = capabilityFor(intent, pattern.construction.type)
+  const garment = garmentEligibility(pattern)
+  const capability = capabilityFor(intent, pattern)
 
   /** Deterministic first — no LLM involved unless the user accepts the offer. */
   const draft = () => {
+    if (!garment.eligible) {
+      setError(garment.reason ?? 'This pattern is unavailable for modification.')
+      return
+    }
     markDirty()
     setError('')
     setLlmOffer(null)
@@ -139,6 +145,10 @@ export default function NewModification({
 
   /** Optional LLM pass — the user chose "let the LLM try" on the offer panel. */
   const draftWithLlm = async () => {
+    if (!garment.eligible) {
+      setError(garment.reason ?? 'This pattern is unavailable for modification.')
+      return
+    }
     const startRevision = inputRevision.current
     const runId = ++llmRun.current
     setError('')
@@ -229,6 +239,10 @@ export default function NewModification({
 
   const confirm = () => {
     setError('')
+    if (!garment.eligible) {
+      setError(garment.reason ?? 'This pattern is unavailable for modification.')
+      return
+    }
     if (selectionError || missing.length > 0) {
       setError(selectionError || 'Complete the required inputs before running this modification.')
       return
@@ -267,8 +281,13 @@ export default function NewModification({
       <section className="card">
         <h2>New modification</h2>
         <p className="muted small">
-          {pattern.meta.name} · {pattern.construction.type.replaceAll('_', ' ')}
+          {pattern.meta.name} · {garment.resolution.kind} · {pattern.construction.type.replaceAll('_', ' ')}
         </p>
+        {!garment.eligible && (
+          <div className="panel warn">
+            <strong>Modification unavailable.</strong> {garment.reason}
+          </div>
+        )}
         <div className="form-grid">
           <label className="field">
             <span>Size to knit</span>
@@ -310,7 +329,7 @@ export default function NewModification({
           />
         </label>
         <div className="row">
-          <button onClick={draft} disabled={raw.trim().length === 0}>
+          <button onClick={draft} disabled={!garment.eligible || raw.trim().length === 0}>
             Draft intent from text
           </button>
         </div>
@@ -513,7 +532,7 @@ export default function NewModification({
                 ))}
               </ul>
               <div className="row">
-                <button className="primary" disabled={drafting} onClick={() => void draftWithLlm()}>
+                <button className="primary" disabled={!garment.eligible || drafting} onClick={() => void draftWithLlm()}>
                   {drafting
                     ? 'Asking the LLM…'
                     : getLlmKey()
@@ -550,7 +569,7 @@ export default function NewModification({
           {error && <div className="panel err">{error}</div>}
           {selectionError && <div className="panel err">{selectionError}</div>}
           <div className="row">
-            <button className="primary" disabled={missing.length > 0 || Boolean(selectionError)} onClick={confirm}>
+            <button className="primary" disabled={!garment.eligible || missing.length > 0 || Boolean(selectionError)} onClick={confirm}>
               Run modification
             </button>
             {draftDirty && <button onClick={discard}>Discard unsaved request</button>}

@@ -23,6 +23,7 @@ async function mount(store: Store) {
   await act(async () => { view = create(createElement(AddPattern, { store, go: vi.fn() })) })
 }
 async function pasteSource(value: string) {
+  await act(async () => control('Garment').props.onChange({ target: { value: 'sweater' } }))
   await act(async () => view!.root.findByType('textarea').props.onChange({ target: { value } }))
   await act(async () => button('Parse pasted text').props.onClick())
 }
@@ -39,6 +40,22 @@ afterEach(async () => {
 })
 
 describe('independent import draft recovery review', () => {
+  it('requires the enabled Sweater selection and retains it across source-stage recovery', async () => {
+    await mount(baseStore())
+    expect(control('Garment').props.value).toBe('')
+    expect(button('Parse pasted text').props.disabled).toBe(true)
+    const options = control('Garment').findAllByType('option')
+    expect(options.find((option) => option.props.value === 'sock')?.props.disabled).toBe(true)
+
+    await act(async () => control('Garment').props.onChange({ target: { value: 'sweater' } }))
+    expect(button('Parse pasted text').props.disabled).toBe(true)
+    await act(async () => view!.root.findByType('textarea').props.onChange({ target: { value: 'Synthetic sweater source text.' } }))
+    expect(button('Parse pasted text').props.disabled).toBe(false)
+    await act(async () => view!.unmount())
+    await mount(baseStore())
+    expect(control('Garment').props.value).toBe('sweater')
+  })
+
   it('restores correction values with their original declared unit and without API keys', async () => {
     const store = baseStore()
     await mount(store)
@@ -58,6 +75,7 @@ describe('independent import draft recovery review', () => {
     await act(async () => button('Save as draft').props.onClick())
     expect(store.actions.addPattern).toHaveBeenCalledTimes(1)
     const saved = vi.mocked(store.actions.addPattern).mock.calls[0]![0]
+    expect(saved.garmentKind).toBe('sweater')
     expect(saved.sizing.bustOrChestIn).toEqual([34, 36, 38])
     expect(saved.gauge[0]?.stsPerIn).toBe(5)
     expect(readSessionDraft('add:new')).toBeNull()

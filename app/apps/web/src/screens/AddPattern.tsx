@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ConstructionType, Pattern, WorkingMethod } from '@knitting/schema'
-import { validatePattern } from '@knitting/schema'
+import type { ConstructionType, GarmentKind, Pattern, WorkingMethod } from '@knitting/schema'
+import { garmentEligibility, resolveGarmentKind, validatePattern } from '@knitting/schema'
 import type { ExtractedField, LlmFieldSpec } from '@knitting/parser'
 import {
   buildSections,
@@ -49,6 +49,7 @@ interface AddPatternDraft {
   name: string
   pdfName: string | null
   paste: string
+  garmentKind: GarmentKind | null
   constructionOverride: ConstructionType | null
   methodOverride: WorkingMethod | null
   directionOverride: 'top_down' | 'bottom_up' | null
@@ -128,6 +129,7 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
   const [name, setName] = useState(restored?.name ?? '')
   const [pdfName, setPdfName] = useState<string | null>(restored?.pdfName ?? null)
   const [paste, setPaste] = useState(restored?.paste ?? '')
+  const [garmentKind, setGarmentKind] = useState<GarmentKind | null>(restored?.garmentKind ?? null)
   const [dragOver, setDragOver] = useState(false)
   const [llmSizing, setLlmSizing] = useState<LlmOutcome>(restored?.llmSizing ?? { status: 'idle', kept: [], dropped: [] })
   const [llmKey, setLlmKeyState] = useState(getLlmKey())
@@ -181,6 +183,7 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
     setPaste('')
     setPdfName(existing.meta.pdfRef ?? null)
     setName(existing.meta.name)
+    setGarmentKind(resolveGarmentKind(existing).kind)
     setStage('review')
     setError('')
   }, [patternName])
@@ -194,13 +197,13 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
   useEffect(() => {
     if (!draftDirty) return
     writeSessionDraft(draftKey, {
-      stage, text, name, pdfName, paste, constructionOverride, methodOverride,
+      stage, text, name, pdfName, paste, garmentKind, constructionOverride, methodOverride,
       directionOverride, basisOverride, labelsOverride, bustOverride, manualStsOver,
       manualRowsOver, manualGaugeSpan, editingPattern, patternUnit: declaredUnit,
       llmSizing: llmSizing.status === 'done' ? llmSizing : null,
       llmGauge: llmGauge.status === 'done' ? llmGauge : null,
     })
-  }, [basisOverride, bustOverride, constructionOverride, declaredUnit, directionOverride, draftDirty, draftKey, editingPattern, labelsOverride, llmGauge, llmSizing, manualGaugeSpan, manualRowsOver, manualStsOver, methodOverride, name, paste, pdfName, stage, text])
+  }, [basisOverride, bustOverride, constructionOverride, declaredUnit, directionOverride, draftDirty, draftKey, editingPattern, garmentKind, labelsOverride, llmGauge, llmSizing, manualGaugeSpan, manualRowsOver, manualStsOver, methodOverride, name, paste, pdfName, stage, text])
   useEffect(() => {
     if (!sourceInitialized.current) {
       sourceInitialized.current = true
@@ -224,6 +227,10 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
   }, [text])
 
   const handleFile = async (file: File) => {
+    if (garmentKind !== 'sweater') {
+      setError('Choose Sweater before importing a pattern. Other garment modifications are not available yet.')
+      return
+    }
     markDirty()
     const runId = ++sourceRun.current
     setBusy(true)
@@ -397,6 +404,7 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
       : built.construction.working.map((w) => ({ ...w, method: methodOverride ?? w.method }))
     return {
       ...built,
+      ...(garmentKind ? { garmentKind } : {}),
       construction: {
         ...built.construction,
         type: constructionOverride ?? built.construction.type,
@@ -411,7 +419,7 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
         method: methodOverride ?? section.method,
       })),
     }
-  }, [name, pdfName, analysis, llmSizing, llmGauge, declaredUnit, constructionOverride, methodOverride, directionOverride, basisOverride, reviewInputs, editingPattern, text])
+  }, [name, pdfName, analysis, llmSizing, llmGauge, declaredUnit, garmentKind, constructionOverride, methodOverride, directionOverride, basisOverride, reviewInputs, editingPattern, text])
 
   const builderNotes = useMemo(
     () => buildSections(extractSectionCandidates(text), { sizeCount: (analysis.bust ?? [0]).length || 1 }).notes,
@@ -419,6 +427,7 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
   )
 
   const diagnostics = useMemo(() => validatePattern(draft), [draft])
+  const garment = useMemo(() => garmentEligibility(draft), [draft])
 
   const primaryGauge = draft.gauge.find((g) => g.primary)
   const errCount = diagnostics.filter((d) => d.level === 'error').length
@@ -445,9 +454,11 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
       setError(`Review corrections need attention: ${reviewInputs.errors.join(' ')}`)
       return
     }
-    if (status === 'accepted' && (errCount > 0 || unknownReviewFields.length > 0)) {
+    if (status === 'accepted' && (!garment.eligible || errCount > 0 || unknownReviewFields.length > 0)) {
       setError(errCount > 0
         ? 'This pattern still has structural errors. Save it as a draft, or correct the review fields before accepting.'
+        : !garment.eligible
+          ? `This pattern cannot be accepted: ${garment.reason} Save it as a draft to retain it for review.`
         : `Confirm the ${unknownReviewFields.join(', ')} from the source before accepting this pattern. Save it as a draft if the source is incomplete.`)
       return
     }
@@ -482,6 +493,24 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
           The PDF never leaves this device — text is extracted in your browser. Scanned PDFs (no
           text layer) are detected and flagged; browser OCR is out of MVP scope.
         </p>
+        <label className="field">
+          <span>Garment</span>
+          <select
+            value={garmentKind ?? ''}
+            onChange={(e) => {
+              markDirty()
+              setGarmentKind(e.target.value === 'sweater' ? 'sweater' : null)
+            }}
+          >
+            <option value="">Choose garment</option>
+            <option value="sweater">Sweater</option>
+            <option value="sock" disabled>Socks — not available yet</option>
+            <option value="hat" disabled>Hat — not available yet</option>
+            <option value="mitten" disabled>Mittens — not available yet</option>
+            <option value="trousers" disabled>Trousers / leggings — not available yet</option>
+          </select>
+          <small className="muted">Sweater modifications are available. Construction and pattern details are checked after import.</small>
+        </label>
         <label className="field">
           <span>Pattern units (how the document states measurements)</span>
           <select
@@ -551,8 +580,12 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
           <div className="row">
             <button
               className="primary"
-              disabled={paste.trim().length < 10}
+              disabled={garmentKind !== 'sweater' || paste.trim().length < 10}
               onClick={() => {
+                if (garmentKind !== 'sweater') {
+                  setError('Choose Sweater before importing a pattern. Other garment modifications are not available yet.')
+                  return
+                }
                 markDirty()
                 sourceRun.current += 1
                 setBusy(false)
@@ -580,6 +613,7 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
             setText('')
             setName('')
             setPdfName(null)
+            setGarmentKind(null)
             setError('')
           }}>Discard unsaved changes</button>
         </div>}
@@ -672,6 +706,12 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
             </div>
           )}
         </div>
+
+        {!garment.eligible && (
+          <div className="panel warn">
+            <strong>Garment review needed.</strong> {garment.reason}
+          </div>
+        )}
 
         {/* Digest first, details below: what the parser understood, in one glance. */}
         <div className="panel info parse-summary">
