@@ -1,5 +1,21 @@
 # Documentation status and review coverage
 
+## Planning follow-up — 2026-09-05
+
+[Garment selection plan](garment_selection_plan.md) is ready for Terra High
+implementation and Sol High independent validation after scoped execution
+authorization. It specifies one page/select, additive garment identity, legacy
+compatibility and an engine guard; no new garment formulas or generic framework.
+Implementation and review have not started. The maintained registry gains this
+plan; the counts below describe the dated August review, not a new full inventory.
+Current status/spec references were swept for this planning change. Runtime, tests,
+golden fixtures, KB and checklist are unchanged. Personal handoff/bootstrap/plan
+records link the new plan. Local verification passed: typecheck, 260 tests across
+34 files, and production web build. This follow-up is committed
+locally; no push or deployment. The historical review below remains intact.
+
+## August review record
+
 Reviewed 2026-08-31. Runtime baseline: `5dfd340`; this follow-up is documentation
 only. Workflow recovery (`1c63701`) and the protected audit (`e994825`, `5dfd340`)
 are complete and independently reviewed. They are local commits, not yet pushed.
