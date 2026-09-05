@@ -6,7 +6,9 @@ Reviewed base: `62c066c5f5881251c4b6fc81bc8f445fe7a54c60`.
 Reviewed head: `bab0c5bc399a0db7def09457dc5a4244b1ae1640`.
 Implementation agent: GPT-5.6 Terra, High. Validation was performed independently
 by the primary Codex reviewer from the exact committed diff and a production build.
-No push, deployment, paid provider call, OCR run or performance benchmark occurred.
+At validation time no push, deployment, paid provider call, OCR run or performance
+benchmark occurred. The user later authorized pushing the accepted main history to
+GitHub on 2026-09-05; validation evidence and scope did not change.
 
 ## Findings and corrections
 

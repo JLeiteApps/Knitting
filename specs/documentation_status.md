@@ -17,8 +17,10 @@ persists a deliberate review-stage placeholder choice as explicit unknown metada
 Local verification passed: typecheck, 273 tests across 35 files, and production
 web build. Production-browser review covered import/review, the legacy sweater
 modification path, unavailable-state disclosure, Back recovery, 360 px layout and
-offline deterministic use without attributable console warnings/errors. No push or
-deployment occurred. The historical review below remains intact.
+offline deterministic use without attributable console warnings/errors. The user
+subsequently authorized publication: local `main` through documentation commit
+`4aba441` was pushed to `origin/main` on 2026-09-05. No deployment occurred. The
+historical review below remains intact.
 
 ## Full maintained-document sweep — 2026-09-05
 
