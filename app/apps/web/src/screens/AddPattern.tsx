@@ -160,6 +160,15 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
     setLlmGauge((current) => current.status === 'running' ? { status: 'idle', kept: [], dropped: [] } : current)
     setLlmRequested(false)
   }
+  const changeGarment = (value: string) => {
+    markDirty()
+    // A garment decision is newer than any pending source extraction. The old
+    // source may remain in the draft, but it must not advance this screen.
+    sourceRun.current += 1
+    setBusy(false)
+    setProgress('')
+    setGarmentKind(value === 'sweater' ? 'sweater' : null)
+  }
   const switchDeclaredUnit = (next: 'in' | 'cm') => {
     if (next === declaredUnit) return
     markDirty()
@@ -497,10 +506,7 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
           <span>Garment</span>
           <select
             value={garmentKind ?? ''}
-            onChange={(e) => {
-              markDirty()
-              setGarmentKind(e.target.value === 'sweater' ? 'sweater' : null)
-            }}
+            onChange={(e) => changeGarment(e.target.value)}
           >
             <option value="">Choose garment</option>
             <option value="sweater">Sweater</option>
@@ -508,6 +514,9 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
             <option value="hat" disabled>Hat — not available yet</option>
             <option value="mitten" disabled>Mittens — not available yet</option>
             <option value="trousers" disabled>Trousers / leggings — not available yet</option>
+            {garmentKind && !['sweater', 'sock', 'hat', 'mitten', 'trousers'].includes(garmentKind) && (
+              <option value={garmentKind} disabled>{garmentKind === 'unknown' ? 'Unknown — review needed' : `${garmentKind} — not available yet`}</option>
+            )}
           </select>
           <small className="muted">Sweater modifications are available. Construction and pattern details are checked after import.</small>
         </label>
@@ -664,6 +673,24 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
         <label className="field">
           <span>Pattern name</span>
           <input value={name} onChange={(e) => { markDirty(); setName(e.target.value) }} />
+        </label>
+
+        <label className="field">
+          <span>Garment</span>
+          <select value={garmentKind ?? ''} onChange={(e) => changeGarment(e.target.value)}>
+            <option value="">Choose garment</option>
+            <option value="sweater">Sweater</option>
+            <option value="sock" disabled>Socks — not available yet</option>
+            <option value="hat" disabled>Hat — not available yet</option>
+            <option value="mitten" disabled>Mittens — not available yet</option>
+            <option value="trousers" disabled>Trousers / leggings — not available yet</option>
+            {garmentKind && !['sweater', 'sock', 'hat', 'mitten', 'trousers'].includes(garmentKind) && (
+              <option value={garmentKind} disabled>{garmentKind === 'unknown' ? 'Unknown — review needed' : `${garmentKind} — not available yet`}</option>
+            )}
+          </select>
+          <small className="muted">
+            Resolved garment: {garment.resolution.kind}. Sweater modifications are available only after compatible construction review.
+          </small>
         </label>
 
         <div className="panel info">

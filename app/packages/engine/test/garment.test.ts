@@ -3,6 +3,7 @@ import { applyIntent } from '../src/apply.js'
 import { capabilityFor } from '../src/capability.js'
 import { flaxLike } from '../src/fixtures/flaxLike.js'
 import type { FitProfile, ModificationRequest } from '@knitting/shared'
+import { garmentEligibility } from '@knitting/schema'
 
 const profile: FitProfile = { id: 'garment-test', label: 'Synthetic', displayUnit: 'in' }
 const request: ModificationRequest = {
@@ -11,6 +12,12 @@ const request: ModificationRequest = {
 }
 
 describe('garment eligibility boundary', () => {
+  it('does not let explicitly malformed identity metadata use legacy sweater fallback', () => {
+    const malformed = { ...flaxLike(), garmentKind: null } as unknown as ReturnType<typeof flaxLike>
+    expect(garmentEligibility(malformed).eligible).toBe(false)
+    expect(capabilityFor(request.intent, malformed).status).toBe('blocked')
+  })
+
   it('keeps legacy sweater output identical to an explicit sweater identity', () => {
     const legacy = flaxLike()
     const explicit = { ...flaxLike(), garmentKind: 'sweater' as const }

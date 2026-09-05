@@ -5,6 +5,7 @@ import AddPattern from './screens/AddPattern'
 import { pdfToText } from './pdf'
 import { clearSessionDrafts, readSessionDraft } from './sessionDrafts'
 import type { Store } from './store'
+import { flaxLike } from '@knitting/engine'
 
 vi.mock('./pdf', () => ({ pdfToText: vi.fn() }))
 vi.mock('./api', () => ({
@@ -19,8 +20,8 @@ const baseStore = () => ({
   patterns: [], displayUnit: 'in', patternUnit: 'in',
   actions: { addPattern: vi.fn().mockReturnValue(true), updatePattern: vi.fn().mockReturnValue(true), setPatternUnit: vi.fn() },
 } as unknown as Store)
-async function mount(store: Store) {
-  await act(async () => { view = create(createElement(AddPattern, { store, go: vi.fn() })) })
+async function mount(store: Store, patternName?: string) {
+  await act(async () => { view = create(createElement(AddPattern, { store, go: vi.fn(), ...(patternName ? { patternName } : {}) })) })
 }
 async function pasteSource(value: string) {
   await act(async () => control('Garment').props.onChange({ target: { value: 'sweater' } }))
@@ -56,6 +57,13 @@ describe('independent import draft recovery review', () => {
     expect(control('Garment').props.value).toBe('sweater')
   })
 
+  it('shows the resolved sweater selection when editing a legacy pattern without source text', async () => {
+    const legacy = flaxLike()
+    await mount({ ...baseStore(), patterns: [legacy] } as Store, legacy.meta.name)
+    expect(control('Garment').props.value).toBe('sweater')
+    expect(text(view!.root)).toContain('Resolved garment: sweater')
+  })
+
   it('restores correction values with their original declared unit and without API keys', async () => {
     const store = baseStore()
     await mount(store)
@@ -85,10 +93,23 @@ describe('independent import draft recovery review', () => {
     let resolve!: (value: Awaited<ReturnType<typeof pdfToText>>) => void
     vi.mocked(pdfToText).mockReturnValue(new Promise(r => { resolve = r }))
     await mount(baseStore())
+    await act(async () => control('Garment').props.onChange({ target: { value: 'sweater' } }))
     await act(async () => view!.root.findAllByType('input').find(n => n.props.type === 'file')!.props.onChange({ target: { files: [{ name: 'Old synthetic.pdf' }] } }))
     await pasteSource('Newer synthetic source entered while the old PDF was processing.')
     expect(control('Pattern name').props.value).toBe('Pasted pattern')
     await act(async () => resolve({ text: 'Old synthetic source completed late.', pages: 1, truncated: false }))
     expect(control('Pattern name').props.value).toBe('Pasted pattern')
+  })
+
+  it('does not advance to review when a newer garment decision invalidates a pending PDF', async () => {
+    let resolve!: (value: Awaited<ReturnType<typeof pdfToText>>) => void
+    vi.mocked(pdfToText).mockReturnValue(new Promise(r => { resolve = r }))
+    await mount(baseStore())
+    await act(async () => control('Garment').props.onChange({ target: { value: 'sweater' } }))
+    await act(async () => view!.root.findAllByType('input').find(n => n.props.type === 'file')!.props.onChange({ target: { files: [{ name: 'Old synthetic.pdf' }] } }))
+    await act(async () => control('Garment').props.onChange({ target: { value: '' } }))
+    await act(async () => resolve({ text: 'Old synthetic source completed late.', pages: 1, truncated: false }))
+    expect(text(view!.root)).not.toContain('Parse review')
+    expect(control('Garment').props.value).toBe('')
   })
 })

@@ -36,6 +36,7 @@ export interface GarmentResolution {
   kind: GarmentKind;
   constructionKind: GarmentKind | undefined;
   explicit: boolean;
+  valid: boolean;
   compatible: boolean;
 }
 
@@ -53,20 +54,27 @@ export function isGarmentKind(value: unknown): value is GarmentKind {
 export function resolveGarmentKind(pattern: Pick<Pattern, 'garmentKind' | 'construction'>): GarmentResolution {
   const explicit = Object.prototype.hasOwnProperty.call(pattern, 'garmentKind');
   const constructionKind = CONSTRUCTION_GARMENTS[pattern.construction.type];
-  const kind = explicit && isGarmentKind(pattern.garmentKind)
-    ? pattern.garmentKind
-    : constructionKind ?? 'unknown';
+  const valid = !explicit || isGarmentKind(pattern.garmentKind);
+  const kind = !valid
+    ? 'unknown'
+    : explicit
+      ? pattern.garmentKind as GarmentKind
+      : constructionKind ?? 'unknown';
   return {
     kind,
     constructionKind,
     explicit,
-    compatible: !explicit || !constructionKind || kind === constructionKind,
+    valid,
+    compatible: valid && (!explicit || !constructionKind || kind === constructionKind),
   };
 }
 
 /** Sweater support is deliberately a workflow gate, separate from structural validity. */
 export function garmentEligibility(pattern: Pick<Pattern, 'garmentKind' | 'construction'>): GarmentEligibility {
   const resolution = resolveGarmentKind(pattern);
+  if (!resolution.valid) {
+    return { eligible: false, resolution, reason: 'Garment selection is invalid; correct it before modifying this pattern.' };
+  }
   if (!resolution.compatible) {
     return { eligible: false, resolution, reason: `Garment selection (${resolution.kind}) conflicts with construction (${resolution.constructionKind}).` };
   }

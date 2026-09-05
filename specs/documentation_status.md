@@ -10,7 +10,10 @@ capability/engine guards. Legacy sweater records resolve in memory without a sto
 rewrite; valid conflicts remain recoverable while malformed explicit identity values
 are rejected. No formulas, golden expectations, parser heuristics, new garment forms,
 routes, packages, KB, or checklist content changed. The tracked schema/engine/UX/app
-docs now describe the delivered boundary. Local verification passed: typecheck, 269
+docs now describe the delivered boundary. The follow-up correction makes invalid
+present garment metadata ineligible without legacy fallback, renders the resolved
+review-stage selector, and invalidates stale PDF extraction after a garment change.
+Local verification passed: typecheck, 272
 tests across 35 files, and production web build. Browser UI verification is not
 available from the delegated worktree session; it remains for independent review.
 No push or deployment occurred. The historical review below remains intact.
