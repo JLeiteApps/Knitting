@@ -12,8 +12,9 @@ are rejected. No formulas, golden expectations, parser heuristics, new garment f
 routes, packages, KB, or checklist content changed. The tracked schema/engine/UX/app
 docs now describe the delivered boundary. The follow-up correction makes invalid
 present garment metadata ineligible without legacy fallback, renders the resolved
-review-stage selector, and invalidates stale PDF extraction after a garment change.
-Local verification passed: typecheck, 272
+review-stage selector, invalidates stale PDF extraction after a garment change, and
+persists a deliberate review-stage placeholder choice as explicit unknown metadata.
+Local verification passed: typecheck, 273
 tests across 35 files, and production web build. Browser UI verification is not
 available from the delegated worktree session; it remains for independent review.
 No push or deployment occurred. The historical review below remains intact.

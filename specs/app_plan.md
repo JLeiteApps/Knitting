@@ -101,7 +101,7 @@ body changes, real-PDF extraction/drafts, profile units/vault reload, phone layo
 and offline deterministic use. No live paid API, OCR or performance benchmark was
 run. Workflow browser checks also covered navigation/Back, import recovery and
 vault draft purge. The later relay audit used mocked transport checks, with no
-new browser or live-provider run. Latest local gates: typecheck, 272 tests across
+new browser or live-provider run. Latest local gates: typecheck, 273 tests across
 35 files, and production web build passed. Local real-PDF tests require ignored
 assets; see [golden setup](../tests/golden/README.md#local-fixtures-and-ci).
 

@@ -14,7 +14,7 @@ Passing golden cases do not constitute complete source or geometry certification
 ## Local fixtures and CI
 
 Run `npm run typecheck`, `npm test`, and `npm run build:web` from the repository
-root. The latest full local suite has 272 tests across 35 files. Three suites
+root. The latest full local suite has 273 tests across 35 files. Three suites
 also need these existing, user-supplied assets, which are deliberately ignored:
 
 | Required local path | Consumers |

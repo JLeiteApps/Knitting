@@ -14,7 +14,7 @@ listener; in prod, `vercel.json` routes them as serverless functions.
   first run; `/api/*` served in-process by the middleware above)
 - `npm run build:web` — typecheck + production build
 - `npm run typecheck` — whole monorepo incl. this app
-- `npm test` — full suite (272 tests across 35 files in schema/engine/parser/web/API)
+- `npm test` — full suite (273 tests across 35 files in schema/engine/parser/web/API)
 
 ## Screens
 Library · Add pattern (one native garment select before upload/paste; only

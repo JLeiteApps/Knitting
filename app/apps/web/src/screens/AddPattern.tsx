@@ -167,7 +167,10 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
     sourceRun.current += 1
     setBusy(false)
     setProgress('')
-    setGarmentKind(value === 'sweater' ? 'sweater' : null)
+    // An untouched new import has no identity yet. Once the user deliberately
+    // returns a reviewed record to the placeholder, preserve that decision as
+    // explicit unknown rather than falling back to its old construction.
+    setGarmentKind(value === 'sweater' ? 'sweater' : 'unknown')
   }
   const switchDeclaredUnit = (next: 'in' | 'cm') => {
     if (next === declaredUnit) return
@@ -505,7 +508,7 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
         <label className="field">
           <span>Garment</span>
           <select
-            value={garmentKind ?? ''}
+            value={garmentKind === 'unknown' ? '' : garmentKind ?? ''}
             onChange={(e) => changeGarment(e.target.value)}
           >
             <option value="">Choose garment</option>
@@ -677,7 +680,7 @@ export default function AddPattern({ store, go, patternName }: ScreenProps & { p
 
         <label className="field">
           <span>Garment</span>
-          <select value={garmentKind ?? ''} onChange={(e) => changeGarment(e.target.value)}>
+          <select value={garmentKind === 'unknown' ? '' : garmentKind ?? ''} onChange={(e) => changeGarment(e.target.value)}>
             <option value="">Choose garment</option>
             <option value="sweater">Sweater</option>
             <option value="sock" disabled>Socks — not available yet</option>

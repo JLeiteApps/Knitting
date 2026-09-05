@@ -64,6 +64,26 @@ describe('independent import draft recovery review', () => {
     expect(text(view!.root)).toContain('Resolved garment: sweater')
   })
 
+  it('turns a reviewed legacy accessory placeholder choice into explicit unknown metadata', async () => {
+    const legacy = flaxLike()
+    legacy.construction.type = 'accessory_sock'
+    legacy.meta = { ...legacy.meta, status: 'draft' }
+    const store = { ...baseStore(), patterns: [legacy] } as Store
+    await mount(store, legacy.meta.name)
+    expect(control('Garment').props.value).toBe('sock')
+    expect(text(view!.root)).toContain('Resolved garment: sock')
+
+    await act(async () => control('Garment').props.onChange({ target: { value: '' } }))
+    expect(control('Garment').props.value).toBe('')
+    expect(text(view!.root)).toContain('Resolved garment: unknown')
+    await act(async () => button('Save as draft').props.onClick())
+
+    const saved = vi.mocked(store.actions.updatePattern).mock.calls[0]![1]
+    expect(saved.garmentKind).toBe('unknown')
+    expect(saved.construction.type).toBe('accessory_sock')
+    expect(saved.sections).toEqual(legacy.sections)
+  })
+
   it('restores correction values with their original declared unit and without API keys', async () => {
     const store = baseStore()
     await mount(store)
