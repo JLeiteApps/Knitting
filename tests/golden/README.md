@@ -5,8 +5,9 @@ intent, with **hand-computed** expected numbers derived from the knowledge base
 (independent of the engine code — never generate expectations by running the
 engine).
 
-Status reviewed 2026-08-31 against `5dfd340`. Existing case contracts and
-hand-derived numbers are unchanged. The [documentation status index](../../specs/documentation_status.md)
+Status reviewed 2026-09-05 against `bab0c5b`. Existing case contracts and
+hand-derived numbers remain unchanged from the accepted audit baseline. The
+[documentation status index](../../specs/documentation_status.md)
 records stale historical TODOs without editing protected expectations; the
 [domain audit](../../specs/domain_audit.md) records unresolved correctness risks.
 Passing golden cases do not constitute complete source or geometry certification.

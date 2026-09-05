@@ -120,6 +120,9 @@ provided (KB §10.1 legacy note is retained as historical context only).
 `back_neck_raise` are now deterministic grammar intents with editable cards and
 code-side gates. Their construction × measurement × provenance × validator
 matrix is exported as `CAPABILITY_MATRIX` from `@knitting/engine`.
+`capabilityFor` first applies the shared garment/construction eligibility guard;
+accessory, trousers, unknown, malformed or conflicting identities cannot reach
+the sweater-internal `any` rows below. This routing rule adds no new intent.
 
 - `waist_shape_reposition`: **blocked** pending explicit plain spans before and
   after the hem-to-waist landmark.

@@ -8,6 +8,9 @@
 > (aria-live), browser-back/history navigation + per-screen document titles,
 > plain-language diagnostics + gate explainer, AddPattern parse-summary digest
 > + PDF drag-and-drop, standalone print header on sheets.
+> Garment-selection pass 2026-09-05: one native selector gates imports, remains
+> visible in review, preserves explicit unknown recovery state, and shares the
+> capability/engine compatibility boundary.
 
 ## Screens & flows
 1. **Library** — pattern cards (construction, sizes, bust range in the active

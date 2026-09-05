@@ -5,8 +5,11 @@ Audit date: 2026-08-31
 Checkout: `codex/domain-knowledge-audit`, baseline `1c63701`
 
 Accepted on local main in `e994825` and `5dfd340`; not pushed as of 2026-08-31.
-The later [documentation sweep](documentation_status.md) changes status and setup
-guidance only. It does not expand this audit's source coverage or resolve findings.
+The 2026-08-31 [documentation sweep](documentation_status.md) changed status and
+setup guidance only. It did not expand this audit's source coverage or resolve findings.
+The separately authorized garment-routing increment (`bab0c5b`, independently
+[validated](garment_selection_review.md)) does not alter the protected findings,
+formulas, fixtures, sources, or manual-question dependencies recorded here.
 
 Scope: read-only source and production-code inventory, protection map, and correction candidates. The only production correction authorized in this batch is the transport logging change recorded as D-1 below.
 

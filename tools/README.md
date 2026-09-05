@@ -13,9 +13,9 @@ node render_pages.js "<pdf>" 4 12,13 outDir
 
 Python OCR (PaddleOCR) helpers stay in `scripts/` (no npm deps).
 
-Status reviewed 2026-08-31: these are optional local knowledge tools, not an app
+Status reviewed 2026-09-05: these are optional local knowledge tools, not an app
 test/build prerequisite. No extraction, install, OCR or benchmark ran during the
-documentation sweep. Existing Markdown extracts and OCR outputs are source
+garment implementation or documentation sweep. Existing Markdown extracts and OCR outputs are source
 artifacts, not status documents to rewrite. OCR (including a single page) and
 performance benchmarks require a separate explicit user request; the previously
 authorized 2026-08-30 benchmark does not authorize another run or adoption of its

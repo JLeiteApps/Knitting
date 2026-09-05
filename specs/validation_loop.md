@@ -1,4 +1,4 @@
-# SPEC — Validation Loop (v0.2, 2026-08-30)
+# SPEC — Validation Loop (v0.2, reviewed 2026-09-05)
 
 The runtime contract is implemented by `schema/validate.ts` and `engine/apply.ts`.
 Validation reports contain `status`, `pass`, `reasons`, dimension checks and Σ checks.
@@ -13,6 +13,10 @@ Validation reports contain `status`, `pass`, `reasons`, dimension checks and Σ 
 An explicit unknown working method is different from a malformed value. Unknown
 methods can remain in drafts, but arbitrary invalid methods cannot enter storage.
 Starting checkpoints must be positive; a fully closed section may end at zero.
+Optional garment identity is shape-validated here: a present malformed value is
+an error, while a valid identity/construction conflict is a recoverable warning.
+Workflow eligibility remains a separate shared guard used by capability disclosure
+and `applyIntent`, so recoverable unsupported drafts cannot enter sweater math.
 
 ## 2. Dimension checks
 

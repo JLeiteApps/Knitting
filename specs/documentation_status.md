@@ -20,6 +20,22 @@ modification path, unavailable-state disclosure, Back recovery, 360 px layout an
 offline deterministic use without attributable console warnings/errors. No push or
 deployment occurred. The historical review below remains intact.
 
+## Full maintained-document sweep — 2026-09-05
+
+After garment-selection acceptance, all 27 maintained Markdown files were checked
+against local main `a31ff6d`: 19 tracked documents, five local personal documents,
+and three local plans. Present-tense runtime headers, suite counts, feature/spec
+boundaries, plan status, registries and queues now describe the accepted
+`bab0c5b` implementation and its independent report. Dated test results and
+historical plan bodies remain historical rather than being rewritten as current.
+The source artifact `tests/golden/flax-worsted/text.md`, extracted books/OCR,
+generated files, dependencies, backups and worktree snapshots are not documentation
+targets and were not edited.
+After this documentation edit, local typecheck, all 273 tests across 35 files,
+and the production web build passed. No browser rerun was needed because this
+sweep changes Markdown only; the accepted browser evidence remains in the
+[garment review](garment_selection_review.md).
+
 ## August review record
 
 Reviewed 2026-08-31. Runtime baseline: `5dfd340`; this follow-up is documentation
@@ -34,11 +50,11 @@ browser, GitHub CI, OCR, performance benchmark, dependency installation or
 deployment was run for this documentation task. The [golden setup guide](../tests/golden/README.md#local-fixtures-and-ci)
 explains why the full local suite needs ignored user-supplied files.
 
-## Review boundary
+## Current review boundary
 
-The sweep covers all 24 existing maintained Markdown files in the main checkout:
-16 tracked documents, five local personal documents, and three local plans. This
-index is the 25th document. Review means checking status and cross-references;
+The current sweep covers all 27 maintained Markdown files in the main checkout:
+19 tracked documents, five local personal documents, and three local plans. Review
+means checking status and cross-references;
 it does not mean rewriting every file or re-verifying every domain assertion.
 The full knowledge base was read in the preceding audit; this follow-up checks
 its preservation rather than repeating source certification.
@@ -59,22 +75,25 @@ status documents. Personal docs and plans remain gitignored; never force-add the
 
 | Document | Review disposition |
 |---|---|
-| [AGENTS.md](../AGENTS.md) | Updated to record the existing user protection rule and link this index. Other standing rules unchanged. |
-| [Web README](../app/apps/web/README.md) | Updated audit scope and the delivered sweater-only garment selector, legacy behavior and engine guard. |
-| [App plan](app_plan.md) | Updated milestones/QA for workflow recovery, the accepted audit and garment-selection boundary; protected domain paragraphs retained. |
-| [App UX](app_ux.md) | Updated for the native selector, import/recovery behavior and unavailable-pattern request guard. |
-| [Domain audit](domain_audit.md) | Added accepted-commit and documentation-sweep status; findings and protection map unchanged. |
-| [Engine functions](engine_functions.md) | Updated only for the shared routing guard before existing capability/fallback rows; no math changed. |
-| [Intent grammar](intent_grammar.md) | Reviewed unchanged under protection; legacy count and illustrative syntax issues are recorded below. |
-| [Parser grammar](parser_grammar.md) | Reviewed unchanged under protection; staged pipeline/partial-import boundary still applies. |
+| [AGENTS.md](../AGENTS.md) | Reviewed unchanged; standing rules and protection links remain current. |
+| [Web README](../app/apps/web/README.md) | Current suite count, selector, legacy behavior and engine guard verified. |
+| [App plan](app_plan.md) | Updated reviewed-head status; milestones/QA and protected domain paragraphs retained. |
+| [App UX](app_ux.md) | Updated review header for the native selector, import/recovery and unavailable-pattern guard. |
+| [Documentation status](documentation_status.md) | Updated current inventory, per-file dispositions and garment acceptance evidence. |
+| [Domain audit](domain_audit.md) | Clarified later garment work is separate; findings and protection map unchanged. |
+| [Engine functions](engine_functions.md) | Updated reviewed runtime boundary for the shared garment guard; no math changed. |
+| [Garment plan](garment_selection_plan.md) | Marked completed; historical handoffs reconciled with the actual independent-review workflow. |
+| [Garment review](garment_selection_review.md) | Reviewed current; exact SHAs, GS1–GS10 evidence, corrections and limits retained. |
+| [Intent grammar](intent_grammar.md) | Added only the current garment gate before existing capability rows; protected intent contracts unchanged. |
+| [Parser grammar](parser_grammar.md) | Updated current boundary: selection is outside parser inference; partial-import limitation retained. |
 | [Pattern schema](pattern_schema.md) | Updated for optional additive garment identity, resolver/compatibility and recovery boundary. |
-| [Validation loop](validation_loop.md) | Reviewed unchanged under protection; audit B-2 records the incomplete dimension-check behavior. |
-| [Golden README](../tests/golden/README.md) | Added local fixture prerequisites, CI limitation and review pointers; acceptance criteria unchanged. |
+| [Validation loop](validation_loop.md) | Added shape-validation versus eligibility boundary; audit B-2 remains unchanged. |
+| [Golden README](../tests/golden/README.md) | Updated reviewed runtime and suite count; acceptance criteria unchanged. |
 | [Flax-like expectations](../tests/golden/flax-like/expectations.md) | Reviewed unchanged under protection; stale concluding TODO recorded below. |
 | [Flax-worsted expectations](../tests/golden/flax-worsted/expectations.md) | Reviewed unchanged under protection; stale concluding TODO recorded below. |
 | [Flat set-in expectations](../tests/golden/flat-setin-like/expectations.md) | Reviewed unchanged; no fixtures or expected numbers changed. |
 | [Keith Moon expectations](../tests/golden/keith-moon-like/expectations.md) | Reviewed unchanged; no fixtures, source claims or expected numbers changed. |
-| [Tools README](../tools/README.md) | Added current scope and explicit OCR/benchmark authorization reminder; no tooling change. |
+| [Tools README](../tools/README.md) | Updated review date; local-only scope and OCR/benchmark authorization unchanged. |
 
 ## Local personal documents and plans
 
@@ -82,12 +101,12 @@ These files exist only on the local machine; links are not required for a GitHub
 
 | Document | Review disposition |
 |---|---|
-| `CODEX_HANDOFF.md` | Updated main versus audit-worktree state, documentation coverage, verification and push queue. |
+| `CODEX_HANDOFF.md` | Updated accepted garment state, documentation coverage, verification and push queue. |
 | `PROJECT_PROMPT.md` | Updated file registry and current implementation/documentation status. |
 | `KNOWLEDGE_PLAN.md` | Updated registry, phase status, current Git queue and appended this session's log; historical counts stay historical. |
 | `verification_checklist.md` | Byte-identical. Its workflow-review count is a historical snapshot; current application status lives here and in the handoff. No questions or answers changed. |
 | `knitting_knowledge_base.md` | Byte-identical. No source claims, tables, rules or question-related material changed. |
-| `.zcode/plans/workflow-recovery-2026-08-30.md` | Added historical-scope pointer to current status; original completed work packages preserved. |
+| `.zcode/plans/workflow-recovery-2026-08-30.md` | Updated historical pointer to later garment acceptance; original work packages preserved. |
 | `.zcode/plans/plan-sess_b7de12f4-2967-4af3-99ae-93465e8ed3ce.md` | Marked the OCR benchmark plan completed/historical, with no new execution or adoption authorization. |
 | `.zcode/plans/plan-sess_59bbb739-f4de-418f-9946-9c2a66973c0d.md` | Reviewed unchanged: already prominently marked historical/superseded; its old roadmap is not a current queue. |
 

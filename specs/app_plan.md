@@ -5,8 +5,9 @@
 > never stored server-side — shipped 2026-08-27; see web README security posture)
 > · **MVP = focused vertical slice** (five original intents; three golden construction families now covered).
 
-Status reviewed 2026-08-31 against implementation commit `5dfd340`. Current
-milestones and verification are in §§7–8. The [documentation status index](documentation_status.md)
+Status reviewed 2026-09-05 against final garment implementation `bab0c5b` and
+validation report commit `a31ff6d`. Current milestones and verification are in
+§§7–8. The [documentation status index](documentation_status.md)
 records protected legacy claims retained in this plan; this sweep does not
 change domain contracts or answer manual questions. See the
 [source-to-code audit](domain_audit.md) for known implementation discrepancies.

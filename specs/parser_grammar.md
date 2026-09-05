@@ -125,7 +125,7 @@ For each golden pattern (TCK Flax & co.): hand-verified sizes list, gauge line, 
 type, section order, key checkpoints; parser output must match exactly or surface differences
 as review items with correct evidence. Σ checks must pass on the hand-corrected version.
 
-## 6. Current implementation boundary (2026-08-30)
+## 6. Current implementation boundary (reviewed 2026-09-05)
 The broad pipeline above is staged; automatic instruction assembly is incomplete.
 The current optional LLM UI requests sizing and gauge fields, not every target in
 the broader table. Real Flax extraction succeeds in the browser but retains
@@ -137,3 +137,7 @@ construction corrections; it is not yet a general section/checkpoint editor.
 Saved drafts reopen from their existing IR without discarding sections when source
 text is missing. Replacing source resets source-bound corrections and LLM fields.
 No OCR is started by the import flow; scans require separate explicit authorization.
+As of 2026-09-05, Add pattern requires the user to select Sweater before PDF/paste
+processing and writes that identity outside parser internals. The parser still
+infers construction independently; it does not infer garment identity from titles
+or source prose.

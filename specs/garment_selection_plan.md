@@ -45,7 +45,7 @@ construction/capability options and A1/A3/B4/D2 shared callers. The future execu
 instruction must cover a **narrow exception for the garment field, resolver,
 dropdown, compatibility checks, capability/engine guards, and their tests and
 documentation in this plan**. If it does not, ask for that specific exception
-before the dependent edits. A plan or Sol's review cannot waive the rule.
+before the dependent edits. A plan or independent review cannot waive the rule.
 Do not rewrite AGENTS or silently populate manual ANSWER fields to obtain permission.
 
 The proposed first increment is knitted sweaters only; other families are future
@@ -217,9 +217,9 @@ If implementation needs a broader design, explain the concrete reason before exp
    Re-run required checks after the final documentation edits.
 6. Commit logical changes locally. Deliver base SHA, implementation SHA, file/diff
    summary, acceptance-case evidence, actual test count, browser results, unresolved
-   limitations and any uncommitted files. Hand that exact commit to Sol High.
+   limitations and any uncommitted files. Hand that exact commit to the independent reviewer.
 
-## 6. Acceptance cases — Terra implements; Sol independently checks
+## 6. Acceptance cases — Terra implements; independent reviewer checks
 
 | ID | Required observable result |
 |---|---|
@@ -246,7 +246,12 @@ npm test
 npm run build:web
 ```
 
-## 7. Sol High independent validation
+## 7. Independent validation contract
+
+The original plan designated Sol High. In the executed workflow, the primary
+Codex reviewer performed the same independent validation after Terra's handoff;
+the completed evidence and corrections are in
+[the validation report](garment_selection_review.md).
 
 Validate the exact implementation SHA against this plan and its base. Read the diff
 and relevant callers yourself; Terra's report and green tests are supporting evidence.
@@ -274,21 +279,21 @@ Approve only the final reviewed SHA when every required case has evidence and no
 blocking finding remains. A missing fixture/browser facility is NOT VERIFIED,
 not a passing case. No push, deployment or merge by the reviewer.
 
-Sol's deliverable: concise validation report in `specs/garment_selection_review.md`,
+The review deliverable: concise validation report in `specs/garment_selection_review.md`,
 with reviewed base/head SHAs, GS1–GS10 dispositions, findings, verification commands,
 browser evidence, known baseline risks and final verdict. Create it during review,
 not now. Follow the same docs sweep/log and local-commit rules.
 
-## 8. Ready-to-use agent handoffs
+## 8. Historical agent handoffs (completed)
 
 **Terra High:** Implement `specs/garment_selection_plan.md` using GPT-5.6 Terra at
 High reasoning after the user authorizes its section-2 scope. Follow the minimal
 design and GS1–GS10 contract. Keep one page and the existing sweater calculations.
-Complete local verification, documentation and commits; give Sol the exact base and
+Complete local verification, documentation and commits; give the reviewer the exact base and
 head SHAs plus evidence. Do not expand into other garment engines or fix unrelated
 protected findings. Do not push.
 
-**Sol High:** Using GPT-5.6 Sol at High reasoning, independently validate Terra's
+**Independent reviewer:** Independently validate Terra's
 exact handed-off commit against `specs/garment_selection_plan.md`, especially
 GS1–GS10, backward compatibility, engine guards and the simplicity requirements.
 Run verification yourself and return concrete findings to Terra. Write the review

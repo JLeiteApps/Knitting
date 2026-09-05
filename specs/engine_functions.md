@@ -4,6 +4,8 @@
 > current suite count in app/apps/web/README.md) so spec and code stay one
 > artifact. KB refs are the grounding; the golden cases in `tests/golden/**` are
 > the acceptance contracts.
+> Runtime boundary reviewed 2026-09-05 at `bab0c5b`: garment eligibility is
+> checked before the existing sweater capability lookup and calculations.
 
 ## 0. Principles
 - Pure TypeScript, no I/O. Same inputs → same outputs.
